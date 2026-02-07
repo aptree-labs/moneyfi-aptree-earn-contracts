@@ -27,6 +27,8 @@ __export(index_exports, {
   BridgeModule: () => BridgeModule,
   BridgeResources: () => BridgeResources,
   GUARANTEED_YIELD_DURATIONS: () => GUARANTEED_YIELD_DURATIONS,
+  GladeBuilder: () => GladeBuilder,
+  GladeModule: () => GladeModule,
   GuaranteedYieldBuilder: () => GuaranteedYieldBuilder,
   GuaranteedYieldModule: () => GuaranteedYieldModule,
   GuaranteedYieldResources: () => GuaranteedYieldResources,
@@ -1331,6 +1333,186 @@ var MockVaultModule = class extends BaseModule {
   }
 };
 
+// src/modules/glade/builder.ts
+function swapParamsToArgs(p) {
+  return [
+    [],
+    // arg1: Option<signer> — always none, cannot pass signers as args
+    p.toWalletAddress,
+    p.arg3,
+    p.arg4,
+    p.arg5,
+    p.arg6,
+    p.arg7,
+    p.arg8,
+    p.withdrawCase,
+    p.arg10,
+    p.faAddresses,
+    p.arg12,
+    p.arg13 ?? [],
+    // Option wrapping handled by the SDK
+    p.arg14,
+    p.arg15 ?? [],
+    // Option wrapping handled by the SDK
+    p.arg16,
+    p.fromTokenAmounts,
+    p.arg18,
+    p.arg19,
+    p.arg20
+  ];
+}
+var GladeBuilder = class extends BaseModule {
+  // ── glade_flexible entry functions ───────────────────────────────────────
+  /**
+   * Build a `glade_flexible::deposit` transaction.
+   *
+   * Swaps from any token to the bridge's underlying token via Panora,
+   * then deposits the result into the bridge.
+   *
+   * @param sender - The account address that will sign this transaction.
+   * @param args - {@link GladeFlexibleDepositArgs}
+   * @param typeArguments - 32 type arguments for the Panora router: `[fromTokenAddress, T1..T30, toTokenAddress]`.
+   * @returns A built transaction ready for signing.
+   */
+  async deposit(sender, args, typeArguments) {
+    const fnArgs = [
+      ...swapParamsToArgs(args.swapParams),
+      args.depositAmount,
+      args.provider
+    ];
+    return this.buildTransaction(
+      sender,
+      `${this.addresses.aptree}::glade_flexible::deposit`,
+      fnArgs,
+      typeArguments
+    );
+  }
+  /**
+   * Build a `glade_flexible::withdraw` transaction.
+   *
+   * Withdraws from the bridge, then swaps the underlying token to any
+   * desired output token via Panora.
+   *
+   * @param sender - The account address that will sign this transaction.
+   * @param args - {@link GladeFlexibleWithdrawArgs}
+   * @param typeArguments - 32 type arguments for the Panora router: `[fromTokenAddress, T1..T30, toTokenAddress]`.
+   * @returns A built transaction ready for signing.
+   */
+  async withdraw(sender, args, typeArguments) {
+    const fnArgs = [
+      ...swapParamsToArgs(args.swapParams),
+      args.withdrawalAmount,
+      args.provider
+    ];
+    return this.buildTransaction(
+      sender,
+      `${this.addresses.aptree}::glade_flexible::withdraw`,
+      fnArgs,
+      typeArguments
+    );
+  }
+  // ── glade_guaranteed entry functions ─────────────────────────────────────
+  /**
+   * Build a `glade_guaranteed::deposit_guaranteed` transaction.
+   *
+   * Swaps from any token to the bridge's underlying token via Panora,
+   * then creates a guaranteed-yield lock position.
+   *
+   * @param sender - The account address that will sign this transaction.
+   * @param args - {@link GladeGuaranteedDepositArgs}
+   * @param typeArguments - 32 type arguments for the Panora router.
+   * @returns A built transaction ready for signing.
+   */
+  async depositGuaranteed(sender, args, typeArguments) {
+    const fnArgs = [
+      ...swapParamsToArgs(args.swapParams),
+      args.depositAmount,
+      args.tier,
+      args.minAetReceived
+    ];
+    return this.buildTransaction(
+      sender,
+      `${this.addresses.aptree}::glade_guaranteed::deposit_guaranteed`,
+      fnArgs,
+      typeArguments
+    );
+  }
+  /**
+   * Build a `glade_guaranteed::unlock_guaranteed` transaction.
+   *
+   * Unlocks a matured guaranteed-yield position, then swaps the received
+   * tokens to any desired output token via Panora.
+   *
+   * @param sender - The account address that will sign this transaction.
+   * @param args - {@link GladeGuaranteedUnlockArgs}
+   * @param typeArguments - 32 type arguments for the Panora router.
+   * @returns A built transaction ready for signing.
+   */
+  async unlockGuaranteed(sender, args, typeArguments) {
+    const fnArgs = [
+      ...swapParamsToArgs(args.swapParams),
+      args.positionId
+    ];
+    return this.buildTransaction(
+      sender,
+      `${this.addresses.aptree}::glade_guaranteed::unlock_guaranteed`,
+      fnArgs,
+      typeArguments
+    );
+  }
+  /**
+   * Build a `glade_guaranteed::emergency_unlock_guaranteed` transaction.
+   *
+   * Emergency-unlocks a guaranteed-yield position before maturity (forfeiting
+   * yield and clawing back cashback), then swaps the received tokens via Panora.
+   *
+   * @param sender - The account address that will sign this transaction.
+   * @param args - {@link GladeGuaranteedEmergencyUnlockArgs}
+   * @param typeArguments - 32 type arguments for the Panora router.
+   * @returns A built transaction ready for signing.
+   */
+  async emergencyUnlockGuaranteed(sender, args, typeArguments) {
+    const fnArgs = [
+      ...swapParamsToArgs(args.swapParams),
+      args.positionId
+    ];
+    return this.buildTransaction(
+      sender,
+      `${this.addresses.aptree}::glade_guaranteed::emergency_unlock_guaranteed`,
+      fnArgs,
+      typeArguments
+    );
+  }
+  // ── swap_helpers entry functions ─────────────────────────────────────────
+  /**
+   * Build a `swap_helpers::swap` transaction.
+   *
+   * Executes a standalone Panora DEX swap without any bridge or locking operations.
+   *
+   * @param sender - The account address that will sign this transaction.
+   * @param args - {@link SwapArgs}
+   * @param typeArguments - 32 type arguments for the Panora router: `[fromTokenAddress, T1..T30, toTokenAddress]`.
+   * @returns A built transaction ready for signing.
+   */
+  async swap(sender, args, typeArguments) {
+    const fnArgs = swapParamsToArgs(args.swapParams);
+    return this.buildTransaction(
+      sender,
+      `${this.addresses.aptree}::swap_helpers::swap`,
+      fnArgs,
+      typeArguments
+    );
+  }
+};
+
+// src/modules/glade/index.ts
+var GladeModule = class extends BaseModule {
+  constructor(aptos, addresses) {
+    super(aptos, addresses);
+    this.builder = new GladeBuilder(aptos, addresses);
+  }
+};
+
 // src/client.ts
 var AptreeClient = class {
   constructor(config) {
@@ -1342,6 +1524,7 @@ var AptreeClient = class {
       this.aptos,
       this.addresses
     );
+    this.glade = new GladeModule(this.aptos, this.addresses);
     this.mockVault = new MockVaultModule(this.aptos, this.addresses);
   }
 };
@@ -1407,6 +1590,8 @@ var GUARANTEED_YIELD_DURATIONS = {
   BridgeModule,
   BridgeResources,
   GUARANTEED_YIELD_DURATIONS,
+  GladeBuilder,
+  GladeModule,
   GuaranteedYieldBuilder,
   GuaranteedYieldModule,
   GuaranteedYieldResources,

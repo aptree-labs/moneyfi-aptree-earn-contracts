@@ -59,3 +59,13 @@ export type {
   SimulateLossArgs,
   SetTotalDepositsArgs,
 } from "./mock-vault";
+
+export type {
+  PanoraSwapParams,
+  GladeFlexibleDepositArgs,
+  GladeFlexibleWithdrawArgs,
+  GladeGuaranteedDepositArgs,
+  GladeGuaranteedUnlockArgs,
+  GladeGuaranteedEmergencyUnlockArgs,
+  SwapArgs,
+} from "./glade";

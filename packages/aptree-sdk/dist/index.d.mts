@@ -1358,12 +1358,348 @@ declare class MockVaultModule extends BaseModule {
 }
 
 /**
+ * Common parameters for the Panora DEX aggregator swap routing.
+ *
+ * These parameters are shared across all Glade entry functions
+ * (`glade_flexible::deposit`, `glade_flexible::withdraw`,
+ * `glade_guaranteed::deposit_guaranteed`, etc.).
+ *
+ * They are passed directly to the Panora swap router on-chain. The SDK
+ * does not interpret or validate these parameters — they should be
+ * obtained from the Panora API / quote endpoint.
+ *
+ * @remarks
+ * The 32 type arguments (`fromTokenAddress`, `T1`–`T30`, `toTokenAddress`)
+ * are separate and passed via `typeArguments` in the builder methods.
+ * For Fungible Asset swaps, use `"0x1::string::String"` as the type argument
+ * for coin-type slots.
+ */
+interface PanoraSwapParams {
+    /**
+     * Optional secondary signer. Pass `null` / empty array if not needed.
+     * On-chain type: `0x1::option::Option<signer>`.
+     */
+    optionalSigner: null;
+    /** Address that receives the output tokens from the swap. */
+    toWalletAddress: string;
+    /** Panora router arg3 (u64). */
+    arg3: bigint;
+    /** Panora router arg4 (u8). */
+    arg4: number;
+    /** Panora router arg5 (vector<u8>). */
+    arg5: Uint8Array;
+    /** Panora router arg6 (vector<vector<vector<u8>>>). */
+    arg6: number[][][];
+    /** Panora router arg7 (vector<vector<vector<u64>>>). */
+    arg7: bigint[][][];
+    /** Panora router arg8 (vector<vector<vector<bool>>>). */
+    arg8: boolean[][][];
+    /**
+     * Withdraw case flags. Determines token standard per swap leg.
+     * - `1` or `2` = Fungible Asset (FA)
+     * - `3` or `4` = Coin
+     *
+     * On-chain type: `vector<vector<u8>>`.
+     */
+    withdrawCase: number[][];
+    /** Panora router arg10 (vector<vector<vector<address>>>). */
+    arg10: string[][][];
+    /**
+     * Fungible Asset metadata addresses for each swap leg.
+     * Use dummy addresses for Coin-type legs.
+     *
+     * On-chain type: `vector<vector<address>>`.
+     */
+    faAddresses: string[][];
+    /** Panora router arg12 (vector<vector<address>>). */
+    arg12: string[][];
+    /**
+     * Panora router arg13. Optional deeply nested bytes.
+     * On-chain type: `0x1::option::Option<vector<vector<vector<vector<vector<u8>>>>>>`.
+     * Pass `null` for `Option::none`.
+     */
+    arg13: number[][][][][] | null;
+    /** Panora router arg14 (vector<vector<vector<u64>>>). */
+    arg14: bigint[][][];
+    /**
+     * Panora router arg15. Optional nested bytes.
+     * On-chain type: `0x1::option::Option<vector<vector<vector<u8>>>>`.
+     * Pass `null` for `Option::none`.
+     */
+    arg15: number[][][] | null;
+    /** Panora router arg16 (address). */
+    arg16: string;
+    /**
+     * Token amounts to deduct from the user's wallet for the swap.
+     * The sum of this vector is the total input amount.
+     *
+     * On-chain type: `vector<u64>`.
+     */
+    fromTokenAmounts: bigint[];
+    /** Panora router arg18 (u64). */
+    arg18: bigint;
+    /** Panora router arg19 (u64). */
+    arg19: bigint;
+    /** Panora router arg20 (address). */
+    arg20: string;
+}
+/**
+ * Arguments for `glade_flexible::deposit`.
+ *
+ * Performs a swap via Panora (converting any token to the bridge's underlying token)
+ * and then deposits the result into the bridge.
+ */
+interface GladeFlexibleDepositArgs {
+    /** Panora swap routing parameters. */
+    swapParams: PanoraSwapParams;
+    /** Amount of underlying tokens to deposit into the bridge after the swap. */
+    depositAmount: bigint;
+    /** Bridge provider identifier (e.g. 0 for MoneyFi). */
+    provider: bigint;
+}
+/**
+ * Arguments for `glade_flexible::withdraw`.
+ *
+ * Withdraws from the bridge and then performs a swap via Panora (converting
+ * the underlying token to the desired output token).
+ */
+interface GladeFlexibleWithdrawArgs {
+    /** Panora swap routing parameters. */
+    swapParams: PanoraSwapParams;
+    /** Amount of underlying tokens to withdraw from the bridge before the swap. */
+    withdrawalAmount: bigint;
+    /** Bridge provider identifier. */
+    provider: bigint;
+}
+/**
+ * Arguments for `glade_guaranteed::deposit_guaranteed`.
+ *
+ * Performs a swap via Panora and then creates a guaranteed-yield lock position.
+ */
+interface GladeGuaranteedDepositArgs {
+    /** Panora swap routing parameters. */
+    swapParams: PanoraSwapParams;
+    /** Amount of underlying tokens to deposit after the swap. */
+    depositAmount: bigint;
+    /** Lock tier (1=Starter, 2=Bronze, 3=Silver, 4=Gold). */
+    tier: number;
+    /** Minimum AET tokens to receive (slippage protection). */
+    minAetReceived: bigint;
+}
+/**
+ * Arguments for `glade_guaranteed::unlock_guaranteed`.
+ *
+ * Unlocks a guaranteed-yield position and then performs a swap on the output.
+ */
+interface GladeGuaranteedUnlockArgs {
+    /** Panora swap routing parameters. */
+    swapParams: PanoraSwapParams;
+    /** ID of the position to unlock. */
+    positionId: bigint;
+}
+/**
+ * Arguments for `glade_guaranteed::emergency_unlock_guaranteed`.
+ *
+ * Emergency-unlocks a guaranteed-yield position and then swaps the output.
+ */
+interface GladeGuaranteedEmergencyUnlockArgs {
+    /** Panora swap routing parameters. */
+    swapParams: PanoraSwapParams;
+    /** ID of the position to emergency unlock. */
+    positionId: bigint;
+}
+/**
+ * Arguments for `swap_helpers::swap`.
+ *
+ * Executes a standalone Panora swap without any bridge/locking operations.
+ */
+interface SwapArgs {
+    /** Panora swap routing parameters. */
+    swapParams: PanoraSwapParams;
+}
+
+/**
+ * Transaction builders for the Glade contract modules:
+ * - `aptree::glade_flexible` — Swap + bridge deposit/withdraw
+ * - `aptree::glade_guaranteed` — Swap + guaranteed-yield deposit/unlock
+ * - `aptree::swap_helpers` — Standalone Panora swap
+ *
+ * All functions require 32 type arguments for the Panora swap router:
+ * `[fromTokenAddress, T1, T2, ..., T30, toTokenAddress]`.
+ *
+ * For Fungible Asset swaps, use `"0x1::string::String"` as the type argument
+ * for coin-type parameter slots.
+ *
+ * @example
+ * ```typescript
+ * const typeArgs = [
+ *   "0x1::string::String", // fromTokenAddress (FA swap)
+ *   ...Array(30).fill("0x1::string::String"), // T1–T30
+ *   "0x1::string::String", // toTokenAddress (FA swap)
+ * ];
+ *
+ * const txn = await client.glade.builder.deposit(
+ *   senderAddress,
+ *   {
+ *     swapParams: { ... },
+ *     depositAmount: 100_000_000n,
+ *     provider: 0n,
+ *   },
+ *   typeArgs,
+ * );
+ * ```
+ */
+declare class GladeBuilder extends BaseModule {
+    /**
+     * Build a `glade_flexible::deposit` transaction.
+     *
+     * Swaps from any token to the bridge's underlying token via Panora,
+     * then deposits the result into the bridge.
+     *
+     * @param sender - The account address that will sign this transaction.
+     * @param args - {@link GladeFlexibleDepositArgs}
+     * @param typeArguments - 32 type arguments for the Panora router: `[fromTokenAddress, T1..T30, toTokenAddress]`.
+     * @returns A built transaction ready for signing.
+     */
+    deposit(sender: AccountAddressInput, args: GladeFlexibleDepositArgs, typeArguments: string[]): Promise<SimpleTransaction>;
+    /**
+     * Build a `glade_flexible::withdraw` transaction.
+     *
+     * Withdraws from the bridge, then swaps the underlying token to any
+     * desired output token via Panora.
+     *
+     * @param sender - The account address that will sign this transaction.
+     * @param args - {@link GladeFlexibleWithdrawArgs}
+     * @param typeArguments - 32 type arguments for the Panora router: `[fromTokenAddress, T1..T30, toTokenAddress]`.
+     * @returns A built transaction ready for signing.
+     */
+    withdraw(sender: AccountAddressInput, args: GladeFlexibleWithdrawArgs, typeArguments: string[]): Promise<SimpleTransaction>;
+    /**
+     * Build a `glade_guaranteed::deposit_guaranteed` transaction.
+     *
+     * Swaps from any token to the bridge's underlying token via Panora,
+     * then creates a guaranteed-yield lock position.
+     *
+     * @param sender - The account address that will sign this transaction.
+     * @param args - {@link GladeGuaranteedDepositArgs}
+     * @param typeArguments - 32 type arguments for the Panora router.
+     * @returns A built transaction ready for signing.
+     */
+    depositGuaranteed(sender: AccountAddressInput, args: GladeGuaranteedDepositArgs, typeArguments: string[]): Promise<SimpleTransaction>;
+    /**
+     * Build a `glade_guaranteed::unlock_guaranteed` transaction.
+     *
+     * Unlocks a matured guaranteed-yield position, then swaps the received
+     * tokens to any desired output token via Panora.
+     *
+     * @param sender - The account address that will sign this transaction.
+     * @param args - {@link GladeGuaranteedUnlockArgs}
+     * @param typeArguments - 32 type arguments for the Panora router.
+     * @returns A built transaction ready for signing.
+     */
+    unlockGuaranteed(sender: AccountAddressInput, args: GladeGuaranteedUnlockArgs, typeArguments: string[]): Promise<SimpleTransaction>;
+    /**
+     * Build a `glade_guaranteed::emergency_unlock_guaranteed` transaction.
+     *
+     * Emergency-unlocks a guaranteed-yield position before maturity (forfeiting
+     * yield and clawing back cashback), then swaps the received tokens via Panora.
+     *
+     * @param sender - The account address that will sign this transaction.
+     * @param args - {@link GladeGuaranteedEmergencyUnlockArgs}
+     * @param typeArguments - 32 type arguments for the Panora router.
+     * @returns A built transaction ready for signing.
+     */
+    emergencyUnlockGuaranteed(sender: AccountAddressInput, args: GladeGuaranteedEmergencyUnlockArgs, typeArguments: string[]): Promise<SimpleTransaction>;
+    /**
+     * Build a `swap_helpers::swap` transaction.
+     *
+     * Executes a standalone Panora DEX swap without any bridge or locking operations.
+     *
+     * @param sender - The account address that will sign this transaction.
+     * @param args - {@link SwapArgs}
+     * @param typeArguments - 32 type arguments for the Panora router: `[fromTokenAddress, T1..T30, toTokenAddress]`.
+     * @returns A built transaction ready for signing.
+     */
+    swap(sender: AccountAddressInput, args: SwapArgs, typeArguments: string[]): Promise<SimpleTransaction>;
+}
+
+/**
+ * Module for interacting with the Glade contracts:
+ * - `aptree::glade_flexible` — Swap any token + bridge deposit/withdraw in one transaction.
+ * - `aptree::glade_guaranteed` — Swap any token + guaranteed-yield deposit/unlock in one transaction.
+ * - `aptree::swap_helpers` — Standalone Panora DEX swap.
+ *
+ * The Glade contracts integrate with the [Panora DEX aggregator](https://panora.exchange)
+ * to enable single-transaction deposit/withdraw flows from any supported token.
+ * All entry functions require 32 type arguments for the Panora router.
+ *
+ * This module has no view functions or on-chain resources — it only provides
+ * transaction builders via {@link GladeModule.builder | builder}.
+ *
+ * @example
+ * ```typescript
+ * // 32 type arguments for Panora router
+ * const typeArgs = [
+ *   "0x1::string::String", // fromTokenAddress (FA swap)
+ *   ...Array(30).fill("0x1::string::String"), // T1–T30 placeholders
+ *   "0x1::string::String", // toTokenAddress (FA swap)
+ * ];
+ *
+ * // Swap + deposit in one transaction
+ * const txn = await client.glade.builder.deposit(sender, {
+ *   swapParams: {
+ *     optionalSigner: null,
+ *     toWalletAddress: senderAddress,
+ *     arg3: 0n,
+ *     arg4: 0,
+ *     arg5: new Uint8Array(),
+ *     arg6: [],
+ *     arg7: [],
+ *     arg8: [],
+ *     withdrawCase: [[1]],
+ *     arg10: [],
+ *     faAddresses: [[usdtMetadataAddress]],
+ *     arg12: [],
+ *     arg13: null,
+ *     arg14: [],
+ *     arg15: null,
+ *     arg16: "0x0",
+ *     fromTokenAmounts: [100_000_000n],
+ *     arg18: 0n,
+ *     arg19: 0n,
+ *     arg20: "0x0",
+ *   },
+ *   depositAmount: 100_000_000n,
+ *   provider: 0n,
+ * }, typeArgs);
+ *
+ * // Standalone swap
+ * const swapTxn = await client.glade.builder.swap(sender, {
+ *   swapParams: { ... },
+ * }, typeArgs);
+ * ```
+ */
+declare class GladeModule extends BaseModule {
+    /**
+     * Transaction builders for Glade entry functions.
+     *
+     * Includes builders for:
+     * - `glade_flexible::deposit` / `withdraw`
+     * - `glade_guaranteed::deposit_guaranteed` / `unlock_guaranteed` / `emergency_unlock_guaranteed`
+     * - `swap_helpers::swap`
+     */
+    readonly builder: GladeBuilder;
+    constructor(aptos: Aptos, addresses: AptreeAddresses);
+}
+
+/**
  * Main entry point for the Aptree SDK.
  *
  * Provides namespaced access to all contract modules:
  * - {@link AptreeClient.bridge | bridge} — Bridge and MoneyFi adapter interactions.
  * - {@link AptreeClient.locking | locking} — Time-locked deposit positions.
  * - {@link AptreeClient.guaranteedYield | guaranteedYield} — Fixed-rate guaranteed yield locking.
+ * - {@link AptreeClient.glade | glade} — Swap + deposit/withdraw via Panora DEX aggregator.
  * - {@link AptreeClient.mockVault | mockVault} — Mock MoneyFi vault for testing.
  *
  * Each module exposes:
@@ -1406,6 +1742,8 @@ declare class AptreeClient {
     readonly locking: LockingModule;
     /** Guaranteed yield locking contract interactions. */
     readonly guaranteedYield: GuaranteedYieldModule;
+    /** Glade: swap + deposit/withdraw via Panora DEX aggregator. */
+    readonly glade: GladeModule;
     /** Mock MoneyFi vault interactions (for testing). */
     readonly mockVault: MockVaultModule;
     constructor(config: AptreeClientConfig);
@@ -1475,4 +1813,4 @@ declare const GUARANTEED_YIELD_DURATIONS: {
     readonly GOLD: 31536000n;
 };
 
-export { AET_SCALE, type AddToPositionArgs, type AdminWithdrawCashbackVaultArgs, type AptreeAddresses, AptreeClient, type AptreeClientConfig, BPS_DENOMINATOR, BridgeBuilder, type BridgeDepositArgs, BridgeModule, type BridgeRequestArgs, BridgeResources, type BridgeState, type BridgeWithdrawArgs, type BridgeWithdrawalTokenState, type DepositGuaranteedArgs, type DepositLockedArgs, type DepositorState, type DepositorStateView, type EmergencyUnlockArgs, type EmergencyUnlockGuaranteedArgs, type EmergencyUnlockPreview, type FundCashbackVaultArgs, GUARANTEED_YIELD_DURATIONS, type GuaranteedEmergencyUnlockPreview, type GuaranteedLockPosition, type GuaranteedTierConfig, GuaranteedYieldBuilder, GuaranteedYieldModule, GuaranteedYieldResources, GuaranteedYieldTier, LOCKING_DURATIONS, type LockConfig, type LockPosition, LockingBuilder, LockingModule, LockingResources, LockingTier, MockVaultBuilder, type MockVaultDepositArgs, MockVaultModule, type MockVaultRequestWithdrawArgs, MockVaultResources, type MockVaultState, type MockVaultWithdrawRequestedArgs, type MoneyFiAdapterDepositArgs, type MoneyFiAdapterRequestArgs, type MoneyFiAdapterWithdrawArgs, type MoneyFiBridgeState, type MoneyFiReserveState, PRECISION, type ProposeAdminArgs, type ProtocolStats, SEEDS, type SetDepositsEnabledArgs, type SetLocksEnabledArgs, type SetMaxTotalLockedArgs, type SetMinDepositArgs, type SetTierLimitArgs, type SetTierYieldArgs, type SetTotalDepositsArgs, type SetTreasuryArgs, type SetYieldMultiplierArgs, type SimulateLossArgs, type SimulateYieldArgs, TESTNET_ADDRESSES, type TierConfig, type UnlockGuaranteedArgs, type UserGuaranteedPositions, type UserLockPositions, type WithdrawEarlyArgs, type WithdrawUnlockedArgs };
+export { AET_SCALE, type AddToPositionArgs, type AdminWithdrawCashbackVaultArgs, type AptreeAddresses, AptreeClient, type AptreeClientConfig, BPS_DENOMINATOR, BridgeBuilder, type BridgeDepositArgs, BridgeModule, type BridgeRequestArgs, BridgeResources, type BridgeState, type BridgeWithdrawArgs, type BridgeWithdrawalTokenState, type DepositGuaranteedArgs, type DepositLockedArgs, type DepositorState, type DepositorStateView, type EmergencyUnlockArgs, type EmergencyUnlockGuaranteedArgs, type EmergencyUnlockPreview, type FundCashbackVaultArgs, GUARANTEED_YIELD_DURATIONS, GladeBuilder, type GladeFlexibleDepositArgs, type GladeFlexibleWithdrawArgs, type GladeGuaranteedDepositArgs, type GladeGuaranteedEmergencyUnlockArgs, type GladeGuaranteedUnlockArgs, GladeModule, type GuaranteedEmergencyUnlockPreview, type GuaranteedLockPosition, type GuaranteedTierConfig, GuaranteedYieldBuilder, GuaranteedYieldModule, GuaranteedYieldResources, GuaranteedYieldTier, LOCKING_DURATIONS, type LockConfig, type LockPosition, LockingBuilder, LockingModule, LockingResources, LockingTier, MockVaultBuilder, type MockVaultDepositArgs, MockVaultModule, type MockVaultRequestWithdrawArgs, MockVaultResources, type MockVaultState, type MockVaultWithdrawRequestedArgs, type MoneyFiAdapterDepositArgs, type MoneyFiAdapterRequestArgs, type MoneyFiAdapterWithdrawArgs, type MoneyFiBridgeState, type MoneyFiReserveState, PRECISION, type PanoraSwapParams, type ProposeAdminArgs, type ProtocolStats, SEEDS, type SetDepositsEnabledArgs, type SetLocksEnabledArgs, type SetMaxTotalLockedArgs, type SetMinDepositArgs, type SetTierLimitArgs, type SetTierYieldArgs, type SetTotalDepositsArgs, type SetTreasuryArgs, type SetYieldMultiplierArgs, type SimulateLossArgs, type SimulateYieldArgs, type SwapArgs, TESTNET_ADDRESSES, type TierConfig, type UnlockGuaranteedArgs, type UserGuaranteedPositions, type UserLockPositions, type WithdrawEarlyArgs, type WithdrawUnlockedArgs };

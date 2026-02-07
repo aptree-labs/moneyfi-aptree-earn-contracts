@@ -25,6 +25,7 @@ export {
   MockVaultBuilder,
   MockVaultResources,
 } from "./modules/mock-vault";
+export { GladeModule, GladeBuilder } from "./modules/glade";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 export * from "./types";
