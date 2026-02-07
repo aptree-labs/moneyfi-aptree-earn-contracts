@@ -1,0 +1,37 @@
+{
+  "name": "@aptree/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for interacting with Aptree bridge smart contracts on Aptos",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@aptos-labs/ts-sdk": ">=1.0.0"
+  },
+  "devDependencies": {
+    "@aptos-labs/ts-sdk": "^1.33.1",
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0"
+  },
+  "license": "MIT"
+}
