@@ -1,0 +1,27 @@
+[package]
+name = "glade"
+version = "1.0.0"
+authors = []
+
+[addresses]
+wrapper = "_"
+[dev-addresses]
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-framework.git"
+rev = "mainnet"
+subdir = "aptos-framework"
+
+
+[dependencies.Panora_Swap]
+git = "https://github.com/PanoraExchange/Panora-Contract-Integration-Example.git"
+rev = "f955089d589f3719871d0a22f45493fa39290e39"
+subdir = "dependencies/Panora_Swap"
+
+[dependencies.bridge]
+local = "../bridge"
+
+[dependencies.GuaranteedYieldLocking]
+local = "../guaranteed-yield"
+
+[dev-dependencies]
