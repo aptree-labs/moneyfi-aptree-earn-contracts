@@ -1,0 +1,18 @@
+[package]
+name = "locking"
+version = "1.0.0"
+authors = []
+
+[addresses]
+aptree = "0x54321"
+[dev-addresses]
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-framework.git"
+rev = "mainnet"
+subdir = "aptos-framework"
+
+[dependencies.bridge]
+local = "../bridge"
+
+[dev-dependencies]

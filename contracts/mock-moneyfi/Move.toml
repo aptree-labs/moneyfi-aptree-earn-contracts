@@ -1,0 +1,17 @@
+[package]
+name = "MockMoneyFi"
+version = "1.0.0"
+authors = []
+
+[addresses]
+moneyfi_mock = "0xd4b0e499b766905e4da6633aa10cef52e0ffb98054ef76a9a97ea80b486782ca"
+
+[dev-addresses]
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-framework.git"
+rev = "mainnet"
+subdir = "aptos-framework"
+
+# [dev-dependencies.locking]
+# local  = "../locking"
