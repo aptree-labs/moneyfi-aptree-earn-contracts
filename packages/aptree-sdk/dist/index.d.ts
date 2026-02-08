@@ -715,9 +715,25 @@ interface DepositGuaranteedArgs {
     /** Minimum AET tokens to receive (slippage protection). */
     minAetReceived: bigint;
 }
-/** Arguments for `GuaranteedYieldLocking::unlock_guaranteed`. */
-interface UnlockGuaranteedArgs {
-    /** ID of the position to unlock. */
+/**
+ * Arguments for `GuaranteedYieldLocking::request_unlock_guaranteed`.
+ *
+ * Initiates the unlock process for a matured position. This requests a
+ * withdrawal from MoneyFi which must be confirmed off-chain before
+ * calling {@link WithdrawGuaranteedArgs | withdraw_guaranteed}.
+ */
+interface RequestUnlockGuaranteedArgs {
+    /** ID of the position to request unlock for. */
+    positionId: bigint;
+}
+/**
+ * Arguments for `GuaranteedYieldLocking::withdraw_guaranteed`.
+ *
+ * Completes the unlock process after the off-chain withdrawal confirmation.
+ * Must be called after {@link RequestUnlockGuaranteedArgs | request_unlock_guaranteed}.
+ */
+interface WithdrawGuaranteedArgs {
+    /** ID of the position to withdraw. */
     positionId: bigint;
 }
 /** Arguments for `GuaranteedYieldLocking::fund_cashback_vault`. */
@@ -725,9 +741,25 @@ interface FundCashbackVaultArgs {
     /** Amount to fund the cashback vault with. */
     amount: bigint;
 }
-/** Arguments for `GuaranteedYieldLocking::emergency_unlock_guaranteed`. */
-interface EmergencyUnlockGuaranteedArgs {
+/**
+ * Arguments for `GuaranteedYieldLocking::request_emergency_unlock_guaranteed`.
+ *
+ * Initiates emergency unlock before maturity. Requests a withdrawal from
+ * MoneyFi which must be confirmed off-chain before calling
+ * {@link WithdrawEmergencyGuaranteedArgs | withdraw_emergency_guaranteed}.
+ */
+interface RequestEmergencyUnlockGuaranteedArgs {
     /** ID of the position to emergency unlock. */
+    positionId: bigint;
+}
+/**
+ * Arguments for `GuaranteedYieldLocking::withdraw_emergency_guaranteed`.
+ *
+ * Completes the emergency unlock after off-chain withdrawal confirmation.
+ * Must be called after {@link RequestEmergencyUnlockGuaranteedArgs | request_emergency_unlock_guaranteed}.
+ */
+interface WithdrawEmergencyGuaranteedArgs {
+    /** ID of the position to complete emergency withdrawal for. */
     positionId: bigint;
 }
 /** Arguments for `GuaranteedYieldLocking::set_tier_yield` (admin only). */
@@ -794,17 +826,35 @@ declare class GuaranteedYieldBuilder extends BaseModule {
      */
     depositGuaranteed(sender: AccountAddressInput, args: DepositGuaranteedArgs): Promise<SimpleTransaction>;
     /**
-     * Build a `GuaranteedYieldLocking::unlock_guaranteed` transaction.
+     * Build a `GuaranteedYieldLocking::request_unlock_guaranteed` transaction.
      *
-     * Unlocks a guaranteed-yield position after its lock period has ended.
-     * The user receives the AET share tokens, which can then be redeemed through
-     * the bridge. Any yield above the guaranteed amount is sent to the treasury.
+     * **Step 1 of 2** for unlocking a matured guaranteed-yield position.
+     *
+     * Initiates the unlock by requesting a withdrawal from MoneyFi. This is an
+     * async operation — the withdrawal must be confirmed off-chain before calling
+     * {@link withdrawGuaranteed} to complete the process.
      *
      * @param sender - The account address that will sign this transaction.
-     * @param args - {@link UnlockGuaranteedArgs}
+     * @param args - {@link RequestUnlockGuaranteedArgs}
      * @returns A built transaction ready for signing.
      */
-    unlockGuaranteed(sender: AccountAddressInput, args: UnlockGuaranteedArgs): Promise<SimpleTransaction>;
+    requestUnlockGuaranteed(sender: AccountAddressInput, args: RequestUnlockGuaranteedArgs): Promise<SimpleTransaction>;
+    /**
+     * Build a `GuaranteedYieldLocking::withdraw_guaranteed` transaction.
+     *
+     * **Step 2 of 2** for unlocking a matured guaranteed-yield position.
+     *
+     * Completes the unlock after the off-chain withdrawal confirmation. The user
+     * receives their principal. Any yield above the guaranteed amount is sent to
+     * the treasury.
+     *
+     * Must be called after {@link requestUnlockGuaranteed} and off-chain confirmation.
+     *
+     * @param sender - The account address that will sign this transaction.
+     * @param args - {@link WithdrawGuaranteedArgs}
+     * @returns A built transaction ready for signing.
+     */
+    withdrawGuaranteed(sender: AccountAddressInput, args: WithdrawGuaranteedArgs): Promise<SimpleTransaction>;
     /**
      * Build a `GuaranteedYieldLocking::fund_cashback_vault` transaction.
      *
@@ -817,18 +867,37 @@ declare class GuaranteedYieldBuilder extends BaseModule {
      */
     fundCashbackVault(sender: AccountAddressInput, args: FundCashbackVaultArgs): Promise<SimpleTransaction>;
     /**
-     * Build a `GuaranteedYieldLocking::emergency_unlock_guaranteed` transaction.
+     * Build a `GuaranteedYieldLocking::request_emergency_unlock_guaranteed` transaction.
      *
-     * Immediately unlocks a guaranteed-yield position before its lock period ends.
-     * The user forfeits any yield and the cashback is clawed back from their balance.
+     * **Step 1 of 2** for emergency-unlocking a position before maturity.
+     *
+     * Initiates the emergency unlock by requesting a withdrawal from MoneyFi.
+     * The withdrawal must be confirmed off-chain before calling
+     * {@link withdrawEmergencyGuaranteed} to complete the process.
+     *
      * Use {@link GuaranteedYieldModule.getEmergencyUnlockPreview | getEmergencyUnlockPreview}
-     * to preview the outcome.
+     * to preview the expected payout, forfeited yield, and cashback clawback.
      *
      * @param sender - The account address that will sign this transaction.
-     * @param args - {@link EmergencyUnlockGuaranteedArgs}
+     * @param args - {@link RequestEmergencyUnlockGuaranteedArgs}
      * @returns A built transaction ready for signing.
      */
-    emergencyUnlockGuaranteed(sender: AccountAddressInput, args: EmergencyUnlockGuaranteedArgs): Promise<SimpleTransaction>;
+    requestEmergencyUnlockGuaranteed(sender: AccountAddressInput, args: RequestEmergencyUnlockGuaranteedArgs): Promise<SimpleTransaction>;
+    /**
+     * Build a `GuaranteedYieldLocking::withdraw_emergency_guaranteed` transaction.
+     *
+     * **Step 2 of 2** for emergency-unlocking a position before maturity.
+     *
+     * Completes the emergency unlock after off-chain withdrawal confirmation.
+     * The user forfeits yield and the cashback is clawed back.
+     *
+     * Must be called after {@link requestEmergencyUnlockGuaranteed} and off-chain confirmation.
+     *
+     * @param sender - The account address that will sign this transaction.
+     * @param args - {@link WithdrawEmergencyGuaranteedArgs}
+     * @returns A built transaction ready for signing.
+     */
+    withdrawEmergencyGuaranteed(sender: AccountAddressInput, args: WithdrawEmergencyGuaranteedArgs): Promise<SimpleTransaction>;
     /**
      * Build a `GuaranteedYieldLocking::set_tier_yield` transaction.
      *
@@ -1489,23 +1558,31 @@ interface GladeGuaranteedDepositArgs {
 /**
  * Arguments for `glade_guaranteed::unlock_guaranteed`.
  *
- * Unlocks a guaranteed-yield position and then performs a swap on the output.
+ * Completes withdrawal of a guaranteed-yield position (step 2 of the async flow)
+ * and then swaps the received tokens to any desired output token via Panora.
+ *
+ * The request step must be done directly via
+ * {@link GuaranteedYieldModule} (`requestUnlockGuaranteed`) before calling this.
  */
 interface GladeGuaranteedUnlockArgs {
     /** Panora swap routing parameters. */
     swapParams: PanoraSwapParams;
-    /** ID of the position to unlock. */
+    /** ID of the position to complete withdrawal for. */
     positionId: bigint;
 }
 /**
  * Arguments for `glade_guaranteed::emergency_unlock_guaranteed`.
  *
- * Emergency-unlocks a guaranteed-yield position and then swaps the output.
+ * Completes emergency withdrawal of a guaranteed-yield position (step 2 of the async flow)
+ * and then swaps the received tokens to any desired output token via Panora.
+ *
+ * The request step must be done directly via
+ * {@link GuaranteedYieldModule} (`requestEmergencyUnlockGuaranteed`) before calling this.
  */
 interface GladeGuaranteedEmergencyUnlockArgs {
     /** Panora swap routing parameters. */
     swapParams: PanoraSwapParams;
-    /** ID of the position to emergency unlock. */
+    /** ID of the position to complete emergency withdrawal for. */
     positionId: bigint;
 }
 /**
@@ -1589,8 +1666,12 @@ declare class GladeBuilder extends BaseModule {
     /**
      * Build a `glade_guaranteed::unlock_guaranteed` transaction.
      *
-     * Unlocks a matured guaranteed-yield position, then swaps the received
-     * tokens to any desired output token via Panora.
+     * Completes withdrawal of a matured guaranteed-yield position
+     * and then swaps the received tokens to any desired output token via Panora.
+     *
+     * This wraps the withdraw step (step 2) of the async unlock flow.
+     * The request step must be done directly via
+     * {@link GuaranteedYieldModule} (`requestUnlockGuaranteed`) before calling this.
      *
      * @param sender - The account address that will sign this transaction.
      * @param args - {@link GladeGuaranteedUnlockArgs}
@@ -1601,8 +1682,13 @@ declare class GladeBuilder extends BaseModule {
     /**
      * Build a `glade_guaranteed::emergency_unlock_guaranteed` transaction.
      *
-     * Emergency-unlocks a guaranteed-yield position before maturity (forfeiting
-     * yield and clawing back cashback), then swaps the received tokens via Panora.
+     * Completes emergency withdrawal of a guaranteed-yield position,
+     * forfeiting yield and clawing back cashback, then swaps the received
+     * tokens to any desired output token via Panora.
+     *
+     * This wraps the withdraw step (step 2) of the async emergency unlock flow.
+     * The request step must be done directly via
+     * {@link GuaranteedYieldModule} (`requestEmergencyUnlockGuaranteed`) before calling this.
      *
      * @param sender - The account address that will sign this transaction.
      * @param args - {@link GladeGuaranteedEmergencyUnlockArgs}
@@ -1813,4 +1899,4 @@ declare const GUARANTEED_YIELD_DURATIONS: {
     readonly GOLD: 31536000n;
 };
 
-export { AET_SCALE, type AddToPositionArgs, type AdminWithdrawCashbackVaultArgs, type AptreeAddresses, AptreeClient, type AptreeClientConfig, BPS_DENOMINATOR, BridgeBuilder, type BridgeDepositArgs, BridgeModule, type BridgeRequestArgs, BridgeResources, type BridgeState, type BridgeWithdrawArgs, type BridgeWithdrawalTokenState, type DepositGuaranteedArgs, type DepositLockedArgs, type DepositorState, type DepositorStateView, type EmergencyUnlockArgs, type EmergencyUnlockGuaranteedArgs, type EmergencyUnlockPreview, type FundCashbackVaultArgs, GUARANTEED_YIELD_DURATIONS, GladeBuilder, type GladeFlexibleDepositArgs, type GladeFlexibleWithdrawArgs, type GladeGuaranteedDepositArgs, type GladeGuaranteedEmergencyUnlockArgs, type GladeGuaranteedUnlockArgs, GladeModule, type GuaranteedEmergencyUnlockPreview, type GuaranteedLockPosition, type GuaranteedTierConfig, GuaranteedYieldBuilder, GuaranteedYieldModule, GuaranteedYieldResources, GuaranteedYieldTier, LOCKING_DURATIONS, type LockConfig, type LockPosition, LockingBuilder, LockingModule, LockingResources, LockingTier, MockVaultBuilder, type MockVaultDepositArgs, MockVaultModule, type MockVaultRequestWithdrawArgs, MockVaultResources, type MockVaultState, type MockVaultWithdrawRequestedArgs, type MoneyFiAdapterDepositArgs, type MoneyFiAdapterRequestArgs, type MoneyFiAdapterWithdrawArgs, type MoneyFiBridgeState, type MoneyFiReserveState, PRECISION, type PanoraSwapParams, type ProposeAdminArgs, type ProtocolStats, SEEDS, type SetDepositsEnabledArgs, type SetLocksEnabledArgs, type SetMaxTotalLockedArgs, type SetMinDepositArgs, type SetTierLimitArgs, type SetTierYieldArgs, type SetTotalDepositsArgs, type SetTreasuryArgs, type SetYieldMultiplierArgs, type SimulateLossArgs, type SimulateYieldArgs, type SwapArgs, TESTNET_ADDRESSES, type TierConfig, type UnlockGuaranteedArgs, type UserGuaranteedPositions, type UserLockPositions, type WithdrawEarlyArgs, type WithdrawUnlockedArgs };
+export { AET_SCALE, type AddToPositionArgs, type AdminWithdrawCashbackVaultArgs, type AptreeAddresses, AptreeClient, type AptreeClientConfig, BPS_DENOMINATOR, BridgeBuilder, type BridgeDepositArgs, BridgeModule, type BridgeRequestArgs, BridgeResources, type BridgeState, type BridgeWithdrawArgs, type BridgeWithdrawalTokenState, type DepositGuaranteedArgs, type DepositLockedArgs, type DepositorState, type DepositorStateView, type EmergencyUnlockArgs, type EmergencyUnlockPreview, type FundCashbackVaultArgs, GUARANTEED_YIELD_DURATIONS, GladeBuilder, type GladeFlexibleDepositArgs, type GladeFlexibleWithdrawArgs, type GladeGuaranteedDepositArgs, type GladeGuaranteedEmergencyUnlockArgs, type GladeGuaranteedUnlockArgs, GladeModule, type GuaranteedEmergencyUnlockPreview, type GuaranteedLockPosition, type GuaranteedTierConfig, GuaranteedYieldBuilder, GuaranteedYieldModule, GuaranteedYieldResources, GuaranteedYieldTier, LOCKING_DURATIONS, type LockConfig, type LockPosition, LockingBuilder, LockingModule, LockingResources, LockingTier, MockVaultBuilder, type MockVaultDepositArgs, MockVaultModule, type MockVaultRequestWithdrawArgs, MockVaultResources, type MockVaultState, type MockVaultWithdrawRequestedArgs, type MoneyFiAdapterDepositArgs, type MoneyFiAdapterRequestArgs, type MoneyFiAdapterWithdrawArgs, type MoneyFiBridgeState, type MoneyFiReserveState, PRECISION, type PanoraSwapParams, type ProposeAdminArgs, type ProtocolStats, type RequestEmergencyUnlockGuaranteedArgs, type RequestUnlockGuaranteedArgs, SEEDS, type SetDepositsEnabledArgs, type SetLocksEnabledArgs, type SetMaxTotalLockedArgs, type SetMinDepositArgs, type SetTierLimitArgs, type SetTierYieldArgs, type SetTotalDepositsArgs, type SetTreasuryArgs, type SetYieldMultiplierArgs, type SimulateLossArgs, type SimulateYieldArgs, type SwapArgs, TESTNET_ADDRESSES, type TierConfig, type UserGuaranteedPositions, type UserLockPositions, type WithdrawEarlyArgs, type WithdrawEmergencyGuaranteedArgs, type WithdrawGuaranteedArgs, type WithdrawUnlockedArgs };

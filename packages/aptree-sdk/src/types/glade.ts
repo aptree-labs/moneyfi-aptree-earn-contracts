@@ -159,24 +159,32 @@ export interface GladeGuaranteedDepositArgs {
 /**
  * Arguments for `glade_guaranteed::unlock_guaranteed`.
  *
- * Unlocks a guaranteed-yield position and then performs a swap on the output.
+ * Completes withdrawal of a guaranteed-yield position (step 2 of the async flow)
+ * and then swaps the received tokens to any desired output token via Panora.
+ *
+ * The request step must be done directly via
+ * {@link GuaranteedYieldModule} (`requestUnlockGuaranteed`) before calling this.
  */
 export interface GladeGuaranteedUnlockArgs {
   /** Panora swap routing parameters. */
   swapParams: PanoraSwapParams;
-  /** ID of the position to unlock. */
+  /** ID of the position to complete withdrawal for. */
   positionId: bigint;
 }
 
 /**
  * Arguments for `glade_guaranteed::emergency_unlock_guaranteed`.
  *
- * Emergency-unlocks a guaranteed-yield position and then swaps the output.
+ * Completes emergency withdrawal of a guaranteed-yield position (step 2 of the async flow)
+ * and then swaps the received tokens to any desired output token via Panora.
+ *
+ * The request step must be done directly via
+ * {@link GuaranteedYieldModule} (`requestEmergencyUnlockGuaranteed`) before calling this.
  */
 export interface GladeGuaranteedEmergencyUnlockArgs {
   /** Panora swap routing parameters. */
   swapParams: PanoraSwapParams;
-  /** ID of the position to emergency unlock. */
+  /** ID of the position to complete emergency withdrawal for. */
   positionId: bigint;
 }
 

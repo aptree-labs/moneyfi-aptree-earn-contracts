@@ -74,9 +74,26 @@ export interface DepositGuaranteedArgs {
   minAetReceived: bigint;
 }
 
-/** Arguments for `GuaranteedYieldLocking::unlock_guaranteed`. */
-export interface UnlockGuaranteedArgs {
-  /** ID of the position to unlock. */
+/**
+ * Arguments for `GuaranteedYieldLocking::request_unlock_guaranteed`.
+ *
+ * Initiates the unlock process for a matured position. This requests a
+ * withdrawal from MoneyFi which must be confirmed off-chain before
+ * calling {@link WithdrawGuaranteedArgs | withdraw_guaranteed}.
+ */
+export interface RequestUnlockGuaranteedArgs {
+  /** ID of the position to request unlock for. */
+  positionId: bigint;
+}
+
+/**
+ * Arguments for `GuaranteedYieldLocking::withdraw_guaranteed`.
+ *
+ * Completes the unlock process after the off-chain withdrawal confirmation.
+ * Must be called after {@link RequestUnlockGuaranteedArgs | request_unlock_guaranteed}.
+ */
+export interface WithdrawGuaranteedArgs {
+  /** ID of the position to withdraw. */
   positionId: bigint;
 }
 
@@ -86,9 +103,26 @@ export interface FundCashbackVaultArgs {
   amount: bigint;
 }
 
-/** Arguments for `GuaranteedYieldLocking::emergency_unlock_guaranteed`. */
-export interface EmergencyUnlockGuaranteedArgs {
+/**
+ * Arguments for `GuaranteedYieldLocking::request_emergency_unlock_guaranteed`.
+ *
+ * Initiates emergency unlock before maturity. Requests a withdrawal from
+ * MoneyFi which must be confirmed off-chain before calling
+ * {@link WithdrawEmergencyGuaranteedArgs | withdraw_emergency_guaranteed}.
+ */
+export interface RequestEmergencyUnlockGuaranteedArgs {
   /** ID of the position to emergency unlock. */
+  positionId: bigint;
+}
+
+/**
+ * Arguments for `GuaranteedYieldLocking::withdraw_emergency_guaranteed`.
+ *
+ * Completes the emergency unlock after off-chain withdrawal confirmation.
+ * Must be called after {@link RequestEmergencyUnlockGuaranteedArgs | request_emergency_unlock_guaranteed}.
+ */
+export interface WithdrawEmergencyGuaranteedArgs {
+  /** ID of the position to complete emergency withdrawal for. */
   positionId: bigint;
 }
 

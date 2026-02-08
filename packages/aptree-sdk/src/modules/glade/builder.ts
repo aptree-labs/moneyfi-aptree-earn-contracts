@@ -173,8 +173,12 @@ export class GladeBuilder extends BaseModule {
   /**
    * Build a `glade_guaranteed::unlock_guaranteed` transaction.
    *
-   * Unlocks a matured guaranteed-yield position, then swaps the received
-   * tokens to any desired output token via Panora.
+   * Completes withdrawal of a matured guaranteed-yield position
+   * and then swaps the received tokens to any desired output token via Panora.
+   *
+   * This wraps the withdraw step (step 2) of the async unlock flow.
+   * The request step must be done directly via
+   * {@link GuaranteedYieldModule} (`requestUnlockGuaranteed`) before calling this.
    *
    * @param sender - The account address that will sign this transaction.
    * @param args - {@link GladeGuaranteedUnlockArgs}
@@ -202,8 +206,13 @@ export class GladeBuilder extends BaseModule {
   /**
    * Build a `glade_guaranteed::emergency_unlock_guaranteed` transaction.
    *
-   * Emergency-unlocks a guaranteed-yield position before maturity (forfeiting
-   * yield and clawing back cashback), then swaps the received tokens via Panora.
+   * Completes emergency withdrawal of a guaranteed-yield position,
+   * forfeiting yield and clawing back cashback, then swaps the received
+   * tokens to any desired output token via Panora.
+   *
+   * This wraps the withdraw step (step 2) of the async emergency unlock flow.
+   * The request step must be done directly via
+   * {@link GuaranteedYieldModule} (`requestEmergencyUnlockGuaranteed`) before calling this.
    *
    * @param sender - The account address that will sign this transaction.
    * @param args - {@link GladeGuaranteedEmergencyUnlockArgs}

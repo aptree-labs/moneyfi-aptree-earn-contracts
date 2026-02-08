@@ -2,9 +2,11 @@ import { AccountAddressInput, SimpleTransaction } from "@aptos-labs/ts-sdk";
 import { BaseModule } from "../base-module";
 import type {
   DepositGuaranteedArgs,
-  UnlockGuaranteedArgs,
+  RequestUnlockGuaranteedArgs,
+  WithdrawGuaranteedArgs,
   FundCashbackVaultArgs,
-  EmergencyUnlockGuaranteedArgs,
+  RequestEmergencyUnlockGuaranteedArgs,
+  WithdrawEmergencyGuaranteedArgs,
   SetTierYieldArgs,
   SetTreasuryArgs,
   SetDepositsEnabledArgs,
@@ -52,23 +54,51 @@ export class GuaranteedYieldBuilder extends BaseModule {
   }
 
   /**
-   * Build a `GuaranteedYieldLocking::unlock_guaranteed` transaction.
+   * Build a `GuaranteedYieldLocking::request_unlock_guaranteed` transaction.
    *
-   * Unlocks a guaranteed-yield position after its lock period has ended.
-   * The user receives the AET share tokens, which can then be redeemed through
-   * the bridge. Any yield above the guaranteed amount is sent to the treasury.
+   * **Step 1 of 2** for unlocking a matured guaranteed-yield position.
+   *
+   * Initiates the unlock by requesting a withdrawal from MoneyFi. This is an
+   * async operation — the withdrawal must be confirmed off-chain before calling
+   * {@link withdrawGuaranteed} to complete the process.
    *
    * @param sender - The account address that will sign this transaction.
-   * @param args - {@link UnlockGuaranteedArgs}
+   * @param args - {@link RequestUnlockGuaranteedArgs}
    * @returns A built transaction ready for signing.
    */
-  async unlockGuaranteed(
+  async requestUnlockGuaranteed(
     sender: AccountAddressInput,
-    args: UnlockGuaranteedArgs,
+    args: RequestUnlockGuaranteedArgs,
   ): Promise<SimpleTransaction> {
     return this.buildTransaction(
       sender,
-      `${this.addresses.aptree}::GuaranteedYieldLocking::unlock_guaranteed`,
+      `${this.addresses.aptree}::GuaranteedYieldLocking::request_unlock_guaranteed`,
+      [args.positionId],
+    );
+  }
+
+  /**
+   * Build a `GuaranteedYieldLocking::withdraw_guaranteed` transaction.
+   *
+   * **Step 2 of 2** for unlocking a matured guaranteed-yield position.
+   *
+   * Completes the unlock after the off-chain withdrawal confirmation. The user
+   * receives their principal. Any yield above the guaranteed amount is sent to
+   * the treasury.
+   *
+   * Must be called after {@link requestUnlockGuaranteed} and off-chain confirmation.
+   *
+   * @param sender - The account address that will sign this transaction.
+   * @param args - {@link WithdrawGuaranteedArgs}
+   * @returns A built transaction ready for signing.
+   */
+  async withdrawGuaranteed(
+    sender: AccountAddressInput,
+    args: WithdrawGuaranteedArgs,
+  ): Promise<SimpleTransaction> {
+    return this.buildTransaction(
+      sender,
+      `${this.addresses.aptree}::GuaranteedYieldLocking::withdraw_guaranteed`,
       [args.positionId],
     );
   }
@@ -95,24 +125,53 @@ export class GuaranteedYieldBuilder extends BaseModule {
   }
 
   /**
-   * Build a `GuaranteedYieldLocking::emergency_unlock_guaranteed` transaction.
+   * Build a `GuaranteedYieldLocking::request_emergency_unlock_guaranteed` transaction.
    *
-   * Immediately unlocks a guaranteed-yield position before its lock period ends.
-   * The user forfeits any yield and the cashback is clawed back from their balance.
+   * **Step 1 of 2** for emergency-unlocking a position before maturity.
+   *
+   * Initiates the emergency unlock by requesting a withdrawal from MoneyFi.
+   * The withdrawal must be confirmed off-chain before calling
+   * {@link withdrawEmergencyGuaranteed} to complete the process.
+   *
    * Use {@link GuaranteedYieldModule.getEmergencyUnlockPreview | getEmergencyUnlockPreview}
-   * to preview the outcome.
+   * to preview the expected payout, forfeited yield, and cashback clawback.
    *
    * @param sender - The account address that will sign this transaction.
-   * @param args - {@link EmergencyUnlockGuaranteedArgs}
+   * @param args - {@link RequestEmergencyUnlockGuaranteedArgs}
    * @returns A built transaction ready for signing.
    */
-  async emergencyUnlockGuaranteed(
+  async requestEmergencyUnlockGuaranteed(
     sender: AccountAddressInput,
-    args: EmergencyUnlockGuaranteedArgs,
+    args: RequestEmergencyUnlockGuaranteedArgs,
   ): Promise<SimpleTransaction> {
     return this.buildTransaction(
       sender,
-      `${this.addresses.aptree}::GuaranteedYieldLocking::emergency_unlock_guaranteed`,
+      `${this.addresses.aptree}::GuaranteedYieldLocking::request_emergency_unlock_guaranteed`,
+      [args.positionId],
+    );
+  }
+
+  /**
+   * Build a `GuaranteedYieldLocking::withdraw_emergency_guaranteed` transaction.
+   *
+   * **Step 2 of 2** for emergency-unlocking a position before maturity.
+   *
+   * Completes the emergency unlock after off-chain withdrawal confirmation.
+   * The user forfeits yield and the cashback is clawed back.
+   *
+   * Must be called after {@link requestEmergencyUnlockGuaranteed} and off-chain confirmation.
+   *
+   * @param sender - The account address that will sign this transaction.
+   * @param args - {@link WithdrawEmergencyGuaranteedArgs}
+   * @returns A built transaction ready for signing.
+   */
+  async withdrawEmergencyGuaranteed(
+    sender: AccountAddressInput,
+    args: WithdrawEmergencyGuaranteedArgs,
+  ): Promise<SimpleTransaction> {
+    return this.buildTransaction(
+      sender,
+      `${this.addresses.aptree}::GuaranteedYieldLocking::withdraw_emergency_guaranteed`,
       [args.positionId],
     );
   }

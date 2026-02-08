@@ -334,6 +334,11 @@ interface LockPosition {
 
 The guaranteed yield module wraps `aptree::GuaranteedYieldLocking`. It creates lock positions with instant cashback representing the guaranteed yield, paid upfront from a funded vault.
 
+Withdrawal follows an **async 2-step flow** (similar to the bridge):
+1. **Request** — Initiates the unlock/withdrawal on-chain.
+2. **Off-chain confirmation** — An off-chain service confirms the withdrawal is ready.
+3. **Withdraw** — Completes the withdrawal and transfers tokens.
+
 #### Tier Overview
 
 | Tier | Enum | Duration | Guaranteed Yield |
@@ -355,8 +360,13 @@ const txn = await client.guaranteedYield.builder.depositGuaranteed(sender, {
   minAetReceived: 0n, // slippage protection for AET minting
 });
 
-// Unlock after maturity — excess yield goes to treasury
-const txn = await client.guaranteedYield.builder.unlockGuaranteed(sender, {
+// Request unlock after maturity (step 1 of 2)
+const txn = await client.guaranteedYield.builder.requestUnlockGuaranteed(sender, {
+  positionId: 0n,
+});
+
+// Complete withdrawal after off-chain confirmation (step 2 of 2)
+const txn = await client.guaranteedYield.builder.withdrawGuaranteed(sender, {
   positionId: 0n,
 });
 
@@ -365,8 +375,13 @@ const txn = await client.guaranteedYield.builder.fundCashbackVault(sender, {
   amount: 500_000_000n,
 });
 
-// Emergency unlock — forfeits yield, claws back cashback
-const txn = await client.guaranteedYield.builder.emergencyUnlockGuaranteed(sender, {
+// Request emergency unlock — forfeits yield, claws back cashback (step 1 of 2)
+const txn = await client.guaranteedYield.builder.requestEmergencyUnlockGuaranteed(sender, {
+  positionId: 0n,
+});
+
+// Complete emergency withdrawal after off-chain confirmation (step 2 of 2)
+const txn = await client.guaranteedYield.builder.withdrawEmergencyGuaranteed(sender, {
   positionId: 0n,
 });
 ```
@@ -527,13 +542,15 @@ const txn = await client.glade.builder.depositGuaranteed(sender, {
   minAetReceived: 0n,
 }, typeArgs);
 
-// Unlock guaranteed position → swap output to any token
+// Complete guaranteed withdrawal + swap output to any token
+// (request step must be done via client.guaranteedYield.builder.requestUnlockGuaranteed first)
 const txn = await client.glade.builder.unlockGuaranteed(sender, {
   swapParams: panoraQuoteParams,
   positionId: 0n,
 }, typeArgs);
 
-// Emergency unlock guaranteed → swap output to any token
+// Complete emergency guaranteed withdrawal + swap output to any token
+// (request step must be done via client.guaranteedYield.builder.requestEmergencyUnlockGuaranteed first)
 const txn = await client.glade.builder.emergencyUnlockGuaranteed(sender, {
   swapParams: panoraQuoteParams,
   positionId: 0n,
@@ -759,9 +776,11 @@ GUARANTEED_YIELD_DURATIONS.GOLD    // 31_536_000n (365 days)
 |---|---|---|
 | **Builder** | | |
 | `builder.depositGuaranteed(sender, args)` | Create guaranteed-yield position | `SimpleTransaction` |
-| `builder.unlockGuaranteed(sender, args)` | Unlock matured position | `SimpleTransaction` |
+| `builder.requestUnlockGuaranteed(sender, args)` | Request unlock (step 1/2) | `SimpleTransaction` |
+| `builder.withdrawGuaranteed(sender, args)` | Complete withdrawal (step 2/2) | `SimpleTransaction` |
 | `builder.fundCashbackVault(sender, args)` | Fund the cashback vault | `SimpleTransaction` |
-| `builder.emergencyUnlockGuaranteed(sender, args)` | Emergency unlock | `SimpleTransaction` |
+| `builder.requestEmergencyUnlockGuaranteed(sender, args)` | Request emergency unlock (step 1/2) | `SimpleTransaction` |
+| `builder.withdrawEmergencyGuaranteed(sender, args)` | Complete emergency withdrawal (step 2/2) | `SimpleTransaction` |
 | `builder.setTierYield(admin, args)` | Admin: update tier yield | `SimpleTransaction` |
 | `builder.setTreasury(admin, args)` | Admin: set treasury address | `SimpleTransaction` |
 | `builder.setDepositsEnabled(admin, args)` | Admin: toggle deposits | `SimpleTransaction` |
@@ -796,8 +815,8 @@ GUARANTEED_YIELD_DURATIONS.GOLD    // 31_536_000n (365 days)
 | `builder.deposit(sender, args, typeArgs)` | Swap + bridge deposit | `SimpleTransaction` |
 | `builder.withdraw(sender, args, typeArgs)` | Bridge withdraw + swap | `SimpleTransaction` |
 | `builder.depositGuaranteed(sender, args, typeArgs)` | Swap + guaranteed-yield deposit | `SimpleTransaction` |
-| `builder.unlockGuaranteed(sender, args, typeArgs)` | Unlock position + swap | `SimpleTransaction` |
-| `builder.emergencyUnlockGuaranteed(sender, args, typeArgs)` | Emergency unlock + swap | `SimpleTransaction` |
+| `builder.unlockGuaranteed(sender, args, typeArgs)` | Complete guaranteed withdrawal + swap | `SimpleTransaction` |
+| `builder.emergencyUnlockGuaranteed(sender, args, typeArgs)` | Complete emergency withdrawal + swap | `SimpleTransaction` |
 | `builder.swap(sender, args, typeArgs)` | Standalone Panora swap | `SimpleTransaction` |
 
 ### `MockVaultModule`

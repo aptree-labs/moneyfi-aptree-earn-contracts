@@ -642,20 +642,44 @@ var GuaranteedYieldBuilder = class extends BaseModule {
     );
   }
   /**
-   * Build a `GuaranteedYieldLocking::unlock_guaranteed` transaction.
+   * Build a `GuaranteedYieldLocking::request_unlock_guaranteed` transaction.
    *
-   * Unlocks a guaranteed-yield position after its lock period has ended.
-   * The user receives the AET share tokens, which can then be redeemed through
-   * the bridge. Any yield above the guaranteed amount is sent to the treasury.
+   * **Step 1 of 2** for unlocking a matured guaranteed-yield position.
+   *
+   * Initiates the unlock by requesting a withdrawal from MoneyFi. This is an
+   * async operation — the withdrawal must be confirmed off-chain before calling
+   * {@link withdrawGuaranteed} to complete the process.
    *
    * @param sender - The account address that will sign this transaction.
-   * @param args - {@link UnlockGuaranteedArgs}
+   * @param args - {@link RequestUnlockGuaranteedArgs}
    * @returns A built transaction ready for signing.
    */
-  async unlockGuaranteed(sender, args) {
+  async requestUnlockGuaranteed(sender, args) {
     return this.buildTransaction(
       sender,
-      `${this.addresses.aptree}::GuaranteedYieldLocking::unlock_guaranteed`,
+      `${this.addresses.aptree}::GuaranteedYieldLocking::request_unlock_guaranteed`,
+      [args.positionId]
+    );
+  }
+  /**
+   * Build a `GuaranteedYieldLocking::withdraw_guaranteed` transaction.
+   *
+   * **Step 2 of 2** for unlocking a matured guaranteed-yield position.
+   *
+   * Completes the unlock after the off-chain withdrawal confirmation. The user
+   * receives their principal. Any yield above the guaranteed amount is sent to
+   * the treasury.
+   *
+   * Must be called after {@link requestUnlockGuaranteed} and off-chain confirmation.
+   *
+   * @param sender - The account address that will sign this transaction.
+   * @param args - {@link WithdrawGuaranteedArgs}
+   * @returns A built transaction ready for signing.
+   */
+  async withdrawGuaranteed(sender, args) {
+    return this.buildTransaction(
+      sender,
+      `${this.addresses.aptree}::GuaranteedYieldLocking::withdraw_guaranteed`,
       [args.positionId]
     );
   }
@@ -677,21 +701,46 @@ var GuaranteedYieldBuilder = class extends BaseModule {
     );
   }
   /**
-   * Build a `GuaranteedYieldLocking::emergency_unlock_guaranteed` transaction.
+   * Build a `GuaranteedYieldLocking::request_emergency_unlock_guaranteed` transaction.
    *
-   * Immediately unlocks a guaranteed-yield position before its lock period ends.
-   * The user forfeits any yield and the cashback is clawed back from their balance.
+   * **Step 1 of 2** for emergency-unlocking a position before maturity.
+   *
+   * Initiates the emergency unlock by requesting a withdrawal from MoneyFi.
+   * The withdrawal must be confirmed off-chain before calling
+   * {@link withdrawEmergencyGuaranteed} to complete the process.
+   *
    * Use {@link GuaranteedYieldModule.getEmergencyUnlockPreview | getEmergencyUnlockPreview}
-   * to preview the outcome.
+   * to preview the expected payout, forfeited yield, and cashback clawback.
    *
    * @param sender - The account address that will sign this transaction.
-   * @param args - {@link EmergencyUnlockGuaranteedArgs}
+   * @param args - {@link RequestEmergencyUnlockGuaranteedArgs}
    * @returns A built transaction ready for signing.
    */
-  async emergencyUnlockGuaranteed(sender, args) {
+  async requestEmergencyUnlockGuaranteed(sender, args) {
     return this.buildTransaction(
       sender,
-      `${this.addresses.aptree}::GuaranteedYieldLocking::emergency_unlock_guaranteed`,
+      `${this.addresses.aptree}::GuaranteedYieldLocking::request_emergency_unlock_guaranteed`,
+      [args.positionId]
+    );
+  }
+  /**
+   * Build a `GuaranteedYieldLocking::withdraw_emergency_guaranteed` transaction.
+   *
+   * **Step 2 of 2** for emergency-unlocking a position before maturity.
+   *
+   * Completes the emergency unlock after off-chain withdrawal confirmation.
+   * The user forfeits yield and the cashback is clawed back.
+   *
+   * Must be called after {@link requestEmergencyUnlockGuaranteed} and off-chain confirmation.
+   *
+   * @param sender - The account address that will sign this transaction.
+   * @param args - {@link WithdrawEmergencyGuaranteedArgs}
+   * @returns A built transaction ready for signing.
+   */
+  async withdrawEmergencyGuaranteed(sender, args) {
+    return this.buildTransaction(
+      sender,
+      `${this.addresses.aptree}::GuaranteedYieldLocking::withdraw_emergency_guaranteed`,
       [args.positionId]
     );
   }
@@ -1440,8 +1489,12 @@ var GladeBuilder = class extends BaseModule {
   /**
    * Build a `glade_guaranteed::unlock_guaranteed` transaction.
    *
-   * Unlocks a matured guaranteed-yield position, then swaps the received
-   * tokens to any desired output token via Panora.
+   * Completes withdrawal of a matured guaranteed-yield position
+   * and then swaps the received tokens to any desired output token via Panora.
+   *
+   * This wraps the withdraw step (step 2) of the async unlock flow.
+   * The request step must be done directly via
+   * {@link GuaranteedYieldModule} (`requestUnlockGuaranteed`) before calling this.
    *
    * @param sender - The account address that will sign this transaction.
    * @param args - {@link GladeGuaranteedUnlockArgs}
@@ -1463,8 +1516,13 @@ var GladeBuilder = class extends BaseModule {
   /**
    * Build a `glade_guaranteed::emergency_unlock_guaranteed` transaction.
    *
-   * Emergency-unlocks a guaranteed-yield position before maturity (forfeiting
-   * yield and clawing back cashback), then swaps the received tokens via Panora.
+   * Completes emergency withdrawal of a guaranteed-yield position,
+   * forfeiting yield and clawing back cashback, then swaps the received
+   * tokens to any desired output token via Panora.
+   *
+   * This wraps the withdraw step (step 2) of the async emergency unlock flow.
+   * The request step must be done directly via
+   * {@link GuaranteedYieldModule} (`requestEmergencyUnlockGuaranteed`) before calling this.
    *
    * @param sender - The account address that will sign this transaction.
    * @param args - {@link GladeGuaranteedEmergencyUnlockArgs}
