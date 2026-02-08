@@ -70,6 +70,8 @@ module aptree::GuaranteedYieldLocking {
     const ENOT_PENDING_ADMIN: u64 = 314;
     const ENO_PENDING_ADMIN: u64 = 315;
     const ESLIPPAGE_EXCEEDED: u64 = 316;
+    const EPOSITION_ALREADY_PENDING: u64 = 317;
+    const EPOSITION_NOT_PENDING: u64 = 318;
 
     // ============================================
     // Structs
@@ -152,6 +154,27 @@ module aptree::GuaranteedYieldLocking {
     struct UserGuaranteedPositions has key {
         positions: vector<GuaranteedLockPosition>,
         next_position_id: u64
+    }
+
+    /// Tracks a pending unlock/emergency-unlock that has been requested but not yet withdrawn.
+    /// Created during request_unlock_guaranteed / request_emergency_unlock_guaranteed,
+    /// consumed during withdraw_guaranteed / withdraw_emergency_guaranteed.
+    struct PendingUnlock has store, drop, copy {
+        /// The position being unlocked
+        position: GuaranteedLockPosition,
+        /// Amount to withdraw from MoneyFi (already requested via MoneyFiBridge::request)
+        withdrawal_amount: u64,
+        /// Amount to send to the user
+        to_user: u64,
+        /// Amount to send to the treasury
+        to_treasury: u64,
+        /// Whether this is an emergency unlock
+        is_emergency: bool
+    }
+
+    /// User's collection of pending unlock requests
+    struct UserPendingUnlocks has key {
+        pending: vector<PendingUnlock>
     }
 
     // ============================================
@@ -453,10 +476,12 @@ module aptree::GuaranteedYieldLocking {
         );
     }
 
-    /// Unlock position after maturity and receive principal
-    public entry fun unlock_guaranteed(
+    /// Request unlock of a matured position (step 1 of 2).
+    /// Initiates withdrawal from MoneyFi. Off-chain confirmation is required
+    /// before calling withdraw_guaranteed to complete the process.
+    public entry fun request_unlock_guaranteed(
         user: &signer, position_id: u64
-    ) acquires GuaranteedYieldConfig, UserGuaranteedPositions {
+    ) acquires GuaranteedYieldConfig, UserGuaranteedPositions, UserPendingUnlocks {
         let user_addr = address_of(user);
         let current_time = timestamp::now_seconds();
 
@@ -471,31 +496,30 @@ module aptree::GuaranteedYieldLocking {
         // Validate unlock time
         assert!(current_time >= position.unlock_at, EPOSITION_NOT_EXPIRED);
 
+        // Check position is not already pending
+        if (exists<UserPendingUnlocks>(user_addr)) {
+            let pending = borrow_global<UserPendingUnlocks>(user_addr);
+            let (pending_found, _) = find_pending_index(&pending.pending, position_id);
+            assert!(!pending_found, EPOSITION_ALREADY_PENDING);
+        };
+
         let config = borrow_global_mut<GuaranteedYieldConfig>(get_config_address());
         let controller_signer =
             account::create_signer_with_capability(&config.signer_cap);
         let share_price = MoneyFiBridge::get_lp_price();
 
         // Calculate current value of position
-        // Note: integer division rounds down, which may slightly favor protocol (see H6)
         let current_value = ((position.aet_amount as u128) * share_price / AET_SCALE) as u64;
 
-        // Request and complete withdrawal from MoneyFi
+        // Request withdrawal from MoneyFi (async — needs off-chain confirmation)
         MoneyFiBridge::request(&controller_signer, current_value, share_price);
-        MoneyFiBridge::withdraw(&controller_signer, current_value);
 
-        // Calculate actual yield
-        let actual_yield =
-            if (current_value > position.principal) {
-                current_value - position.principal
-            } else { 0 };
-
-        // Determine amount to send to user and treasury
+        // Calculate amounts for distribution after withdrawal completes
         let to_user =
             if (current_value >= position.principal) {
                 position.principal
             } else {
-                current_value // If loss, user gets what's available
+                current_value
             };
 
         let to_treasury =
@@ -503,54 +527,103 @@ module aptree::GuaranteedYieldLocking {
                 current_value - position.principal
             } else { 0 };
 
-        // Transfer principal to user
-        let token_metadata =
-            object::address_to_object<Metadata>(MoneyFiBridge::get_supported_token());
-        if (to_user > 0) {
-            primary_fungible_store::transfer(
-                &controller_signer,
-                token_metadata,
-                user_addr,
-                to_user
-            );
+        // Store pending unlock
+        let pending_unlock = PendingUnlock {
+            position,
+            withdrawal_amount: current_value,
+            to_user,
+            to_treasury,
+            is_emergency: false
         };
 
-        // Transfer actual yield to treasury
-        if (to_treasury > 0) {
-            primary_fungible_store::transfer(
-                &controller_signer,
-                token_metadata,
-                config.treasury,
-                to_treasury
-            );
-            config.total_yield_to_treasury = config.total_yield_to_treasury
-                + to_treasury;
+        if (!exists<UserPendingUnlocks>(user_addr)) {
+            move_to(user, UserPendingUnlocks { pending: vector::empty() });
         };
 
-        // Calculate protocol P/L
-        let (profit_or_loss, is_profit) =
-            if (actual_yield >= position.cashback_paid) {
-                (actual_yield - position.cashback_paid, true)
-            } else {
-                (position.cashback_paid - actual_yield, false)
-            };
+        let user_pending = borrow_global_mut<UserPendingUnlocks>(user_addr);
+        vector::push_back(&mut user_pending.pending, pending_unlock);
 
         // Update global stats
         config.total_locked_principal = config.total_locked_principal
             - position.principal;
         config.total_aet_held = config.total_aet_held - position.aet_amount;
 
-        // Remove position
+        // Remove position from active positions
         vector::swap_remove(&mut user_positions.positions, index);
+    }
+
+    /// Complete unlock after off-chain confirmation (step 2 of 2).
+    /// Withdraws from MoneyFi and distributes tokens to user and treasury.
+    public entry fun withdraw_guaranteed(
+        user: &signer, position_id: u64
+    ) acquires GuaranteedYieldConfig, UserPendingUnlocks {
+        let user_addr = address_of(user);
+        let current_time = timestamp::now_seconds();
+
+        // Find pending unlock
+        assert!(exists<UserPendingUnlocks>(user_addr), EPOSITION_NOT_PENDING);
+        let user_pending = borrow_global_mut<UserPendingUnlocks>(user_addr);
+        let (found, index) = find_pending_index(&user_pending.pending, position_id);
+        assert!(found, EPOSITION_NOT_PENDING);
+
+        let pending = *vector::borrow(&user_pending.pending, index);
+        assert!(!pending.is_emergency, EPOSITION_NOT_PENDING);
+
+        let config = borrow_global_mut<GuaranteedYieldConfig>(get_config_address());
+        let controller_signer =
+            account::create_signer_with_capability(&config.signer_cap);
+
+        // Complete withdrawal from MoneyFi
+        MoneyFiBridge::withdraw(&controller_signer, pending.withdrawal_amount);
+
+        // Transfer principal to user
+        let token_metadata =
+            object::address_to_object<Metadata>(MoneyFiBridge::get_supported_token());
+        if (pending.to_user > 0) {
+            primary_fungible_store::transfer(
+                &controller_signer,
+                token_metadata,
+                user_addr,
+                pending.to_user
+            );
+        };
+
+        // Transfer actual yield to treasury
+        if (pending.to_treasury > 0) {
+            primary_fungible_store::transfer(
+                &controller_signer,
+                token_metadata,
+                config.treasury,
+                pending.to_treasury
+            );
+            config.total_yield_to_treasury = config.total_yield_to_treasury
+                + pending.to_treasury;
+        };
+
+        // Calculate protocol P/L
+        let actual_yield =
+            if (pending.withdrawal_amount > pending.position.principal) {
+                pending.withdrawal_amount - pending.position.principal
+            } else { 0 };
+
+        let (profit_or_loss, is_profit) =
+            if (actual_yield >= pending.position.cashback_paid) {
+                (actual_yield - pending.position.cashback_paid, true)
+            } else {
+                (pending.position.cashback_paid - actual_yield, false)
+            };
+
+        // Remove pending unlock
+        vector::swap_remove(&mut user_pending.pending, index);
 
         emit(
             GuaranteedUnlock {
                 user: user_addr,
                 position_id,
-                principal_returned: to_user,
+                principal_returned: pending.to_user,
                 actual_yield_generated: actual_yield,
-                yield_to_treasury: to_treasury,
-                original_cashback_paid: position.cashback_paid,
+                yield_to_treasury: pending.to_treasury,
+                original_cashback_paid: pending.position.cashback_paid,
                 protocol_profit_or_loss: profit_or_loss,
                 is_profit,
                 timestamp: current_time
@@ -587,13 +660,13 @@ module aptree::GuaranteedYieldLocking {
         );
     }
 
-    /// Emergency unlock - exit position early before maturity.
+    /// Request emergency unlock - exit position early before maturity (step 1 of 2).
     /// Protocol claws back the cashback that was paid upfront and keeps any yield.
-    /// User receives: MAX(0, MIN(principal, current_value) - cashback_paid)
-    /// Treasury receives: the remainder (cashback recovery + any forfeited yield)
-    public entry fun emergency_unlock_guaranteed(
+    /// Initiates withdrawal from MoneyFi. Off-chain confirmation is required
+    /// before calling withdraw_emergency_guaranteed to complete the process.
+    public entry fun request_emergency_unlock_guaranteed(
         user: &signer, position_id: u64
-    ) acquires GuaranteedYieldConfig, UserGuaranteedPositions {
+    ) acquires GuaranteedYieldConfig, UserGuaranteedPositions, UserPendingUnlocks {
         let user_addr = address_of(user);
         let current_time = timestamp::now_seconds();
 
@@ -605,8 +678,15 @@ module aptree::GuaranteedYieldLocking {
 
         let position = *vector::borrow(&user_positions.positions, index);
 
-        // Position must NOT be expired (use unlock_guaranteed instead)
+        // Position must NOT be expired (use request_unlock_guaranteed instead)
         assert!(current_time < position.unlock_at, EUSE_UNLOCK_GUARANTEED);
+
+        // Check position is not already pending
+        if (exists<UserPendingUnlocks>(user_addr)) {
+            let pending = borrow_global<UserPendingUnlocks>(user_addr);
+            let (pending_found, _) = find_pending_index(&pending.pending, position_id);
+            assert!(!pending_found, EPOSITION_ALREADY_PENDING);
+        };
 
         let config = borrow_global_mut<GuaranteedYieldConfig>(get_config_address());
         let controller_signer =
@@ -614,11 +694,8 @@ module aptree::GuaranteedYieldLocking {
         let share_price = MoneyFiBridge::get_lp_price();
 
         // Calculate current value of position from AET at current share price
-        // Note: integer division rounds down, which favors the protocol (see H6)
         let current_value = ((position.aet_amount as u128) * share_price / AET_SCALE) as u64;
         let principal = position.principal;
-        let time_remaining = position.unlock_at - current_time;
-        let cashback_paid = position.cashback_paid;
 
         // Base payout is capped at principal (protocol keeps any yield above principal)
         let base_payout =
@@ -630,72 +707,133 @@ module aptree::GuaranteedYieldLocking {
 
         // Deduct cashback clawback — protocol recovers the upfront cashback from the payout
         let cashback_clawback =
-            if (base_payout > cashback_paid) {
-                cashback_paid
+            if (base_payout > position.cashback_paid) {
+                position.cashback_paid
             } else {
                 base_payout
             };
         let payout = base_payout - cashback_clawback;
 
-        // Calculate yield forfeited (stays in pool) and loss absorbed by user
-        let (yield_forfeited, loss_absorbed) =
-            if (current_value > principal) {
-                (current_value - principal, 0u64)
-            } else if (current_value < principal) {
-                (0u64, principal - current_value)
-            } else {
-                (0u64, 0u64)
-            };
-
-        // Amount to withdraw from MoneyFi = base_payout (user share + treasury share)
-        // Forfeited yield above principal stays in the pool (AET burned, value remains)
-        let token_metadata =
-            object::address_to_object<Metadata>(MoneyFiBridge::get_supported_token());
-
+        // Request withdrawal from MoneyFi (async — needs off-chain confirmation)
         if (base_payout > 0) {
             MoneyFiBridge::request(&controller_signer, base_payout, share_price);
-            MoneyFiBridge::withdraw(&controller_signer, base_payout);
-
-            // Transfer user's portion
-            if (payout > 0) {
-                primary_fungible_store::transfer(
-                    &controller_signer,
-                    token_metadata,
-                    user_addr,
-                    payout
-                );
-            };
-
-            // Transfer cashback recovery to treasury
-            let to_treasury = base_payout - payout;
-            if (to_treasury > 0) {
-                primary_fungible_store::transfer(
-                    &controller_signer,
-                    token_metadata,
-                    config.treasury,
-                    to_treasury
-                );
-            };
         };
+
+        // Store pending unlock
+        let pending_unlock = PendingUnlock {
+            position,
+            withdrawal_amount: base_payout,
+            to_user: payout,
+            to_treasury: base_payout - payout,
+            is_emergency: true
+        };
+
+        if (!exists<UserPendingUnlocks>(user_addr)) {
+            move_to(user, UserPendingUnlocks { pending: vector::empty() });
+        };
+
+        let user_pending = borrow_global_mut<UserPendingUnlocks>(user_addr);
+        vector::push_back(&mut user_pending.pending, pending_unlock);
 
         // Update global stats
         config.total_locked_principal = config.total_locked_principal - principal;
         config.total_aet_held = config.total_aet_held - position.aet_amount;
 
-        // Remove position
+        // Remove position from active positions
         vector::swap_remove(&mut user_positions.positions, index);
+    }
+
+    /// Complete emergency unlock after off-chain confirmation (step 2 of 2).
+    /// User receives: MAX(0, MIN(principal, current_value) - cashback_paid)
+    /// Treasury receives: the remainder (cashback recovery + any forfeited yield)
+    public entry fun withdraw_emergency_guaranteed(
+        user: &signer, position_id: u64
+    ) acquires GuaranteedYieldConfig, UserPendingUnlocks {
+        let user_addr = address_of(user);
+        let current_time = timestamp::now_seconds();
+
+        // Find pending unlock
+        assert!(exists<UserPendingUnlocks>(user_addr), EPOSITION_NOT_PENDING);
+        let user_pending = borrow_global_mut<UserPendingUnlocks>(user_addr);
+        let (found, index) = find_pending_index(&user_pending.pending, position_id);
+        assert!(found, EPOSITION_NOT_PENDING);
+
+        let pending = *vector::borrow(&user_pending.pending, index);
+        assert!(pending.is_emergency, EPOSITION_NOT_PENDING);
+
+        let config = borrow_global_mut<GuaranteedYieldConfig>(get_config_address());
+        let controller_signer =
+            account::create_signer_with_capability(&config.signer_cap);
+
+        let token_metadata =
+            object::address_to_object<Metadata>(MoneyFiBridge::get_supported_token());
+
+        if (pending.withdrawal_amount > 0) {
+            // Complete withdrawal from MoneyFi
+            MoneyFiBridge::withdraw(&controller_signer, pending.withdrawal_amount);
+
+            // Transfer user's portion
+            if (pending.to_user > 0) {
+                primary_fungible_store::transfer(
+                    &controller_signer,
+                    token_metadata,
+                    user_addr,
+                    pending.to_user
+                );
+            };
+
+            // Transfer cashback recovery to treasury
+            if (pending.to_treasury > 0) {
+                primary_fungible_store::transfer(
+                    &controller_signer,
+                    token_metadata,
+                    config.treasury,
+                    pending.to_treasury
+                );
+            };
+        };
+
+        // Reconstruct event data from pending state
+        let principal = pending.position.principal;
+        let current_value = pending.withdrawal_amount + (
+            if (pending.position.aet_amount > 0) {
+                // If base_payout < current_value, yield was forfeited (stayed in pool)
+                // We stored base_payout as withdrawal_amount, so compute original current_value
+                let share_price_at_request = ((pending.withdrawal_amount as u128) * AET_SCALE) / (pending.position.aet_amount as u128);
+                let original_current_value = ((pending.position.aet_amount as u128) * share_price_at_request / AET_SCALE) as u64;
+                if (original_current_value > principal) { original_current_value - principal } else { 0 }
+            } else { 0 }
+        );
+
+        let yield_forfeited =
+            if (current_value > principal) {
+                current_value - principal
+            } else { 0 };
+
+        let loss_absorbed =
+            if (pending.withdrawal_amount < principal) {
+                principal - pending.withdrawal_amount
+            } else { 0 };
+
+        let time_remaining =
+            if (pending.position.unlock_at > current_time) {
+                pending.position.unlock_at - current_time
+            } else { 0 };
+
+        // Remove pending unlock
+        vector::swap_remove(&mut user_pending.pending, index);
 
         emit(
             GuaranteedEmergencyUnlock {
                 user: user_addr,
                 position_id,
-                principal_returned: payout,
+                principal_returned: pending.to_user,
                 yield_forfeited,
                 loss_absorbed,
-                original_cashback_paid: cashback_paid,
-                cashback_clawed_back: cashback_clawback,
-                to_treasury: base_payout - payout,
-                aet_burned: position.aet_amount,
+                original_cashback_paid: pending.position.cashback_paid,
+                cashback_clawed_back: pending.to_treasury,
+                to_treasury: pending.to_treasury,
+                aet_burned: pending.position.aet_amount,
                 time_remaining_seconds: time_remaining,
                 timestamp: current_time
             }
@@ -1060,6 +1198,23 @@ module aptree::GuaranteedYieldLocking {
         while (i < len) {
             let position = vector::borrow(positions, i);
             if (position.position_id == position_id) {
+                return (true, i)
+            };
+            i = i + 1;
+        };
+
+        (false, 0)
+    }
+
+    fun find_pending_index(
+        pending: &vector<PendingUnlock>, position_id: u64
+    ): (bool, u64) {
+        let len = vector::length(pending);
+        let i = 0;
+
+        while (i < len) {
+            let p = vector::borrow(pending, i);
+            if (p.position.position_id == position_id) {
                 return (true, i)
             };
             i = i + 1;
