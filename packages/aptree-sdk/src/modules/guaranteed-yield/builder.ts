@@ -22,9 +22,9 @@ import type {
  * @example
  * ```typescript
  * const txn = await client.guaranteedYield.builder.depositGuaranteed(sender, {
- *   amount: 100_000_000n,
+ *   amount: 100_000_000,
  *   tier: GuaranteedYieldTier.Gold,
- *   minAetReceived: 0n,
+ *   minAetReceived: 0,
  * });
  * ```
  */

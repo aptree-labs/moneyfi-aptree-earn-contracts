@@ -35,7 +35,7 @@ export abstract class BaseModule {
     sender: AccountAddressInput,
     functionId: MoveFunctionId,
     functionArguments: Array<
-      string | number | bigint | boolean | Uint8Array | AccountAddressInput
+      string | number | boolean | Uint8Array | AccountAddressInput
     >,
     typeArguments?: string[],
   ): Promise<SimpleTransaction> {
@@ -60,7 +60,7 @@ export abstract class BaseModule {
   protected async view<T extends Array<unknown>>(
     functionId: MoveFunctionId,
     functionArguments: Array<
-      string | number | bigint | boolean | Uint8Array | AccountAddressInput
+      string | number | boolean | Uint8Array | AccountAddressInput
     > = [],
     typeArguments?: string[],
   ): Promise<T> {

@@ -22,13 +22,13 @@ import type {
  * ```typescript
  * // Deposit with guaranteed yield
  * const txn = await client.guaranteedYield.builder.depositGuaranteed(sender, {
- *   amount: 100_000_000n,
+ *   amount: 100_000_000,
  *   tier: GuaranteedYieldTier.Silver,
- *   minAetReceived: 0n,
+ *   minAetReceived: 0,
  * });
  *
  * // Check cashback for a given amount and tier
- * const cashback = await client.guaranteedYield.calculateCashback(100_000_000n, 3);
+ * const cashback = await client.guaranteedYield.calculateCashback(100_000_000, 3);
  *
  * // Get protocol-wide stats
  * const stats = await client.guaranteedYield.getProtocolStats();
@@ -77,7 +77,7 @@ export class GuaranteedYieldModule extends BaseModule {
    */
   async getGuaranteedPosition(
     user: AccountAddressInput,
-    positionId: bigint,
+    positionId: number,
   ): Promise<GuaranteedLockPosition> {
     const [result] = await this.view<[GuaranteedLockPosition]>(
       `${this.addresses.aptree}::GuaranteedYieldLocking::get_guaranteed_position`,
@@ -94,12 +94,12 @@ export class GuaranteedYieldModule extends BaseModule {
    * @param tier - The tier number (1=Starter, 2=Bronze, 3=Silver, 4=Gold).
    * @returns The yield in basis points (e.g. 500 = 5%).
    */
-  async getTierGuaranteedYield(tier: number): Promise<bigint> {
+  async getTierGuaranteedYield(tier: number): Promise<number> {
     const [result] = await this.view<[string]>(
       `${this.addresses.aptree}::GuaranteedYieldLocking::get_tier_guaranteed_yield`,
       [tier],
     );
-    return BigInt(result);
+    return Number(result);
   }
 
   /**
@@ -110,12 +110,12 @@ export class GuaranteedYieldModule extends BaseModule {
    * @param tier - The tier number (1=Starter, 2=Bronze, 3=Silver, 4=Gold).
    * @returns The lock duration in seconds.
    */
-  async getTierDuration(tier: number): Promise<bigint> {
+  async getTierDuration(tier: number): Promise<number> {
     const [result] = await this.view<[string]>(
       `${this.addresses.aptree}::GuaranteedYieldLocking::get_tier_duration`,
       [tier],
     );
-    return BigInt(result);
+    return Number(result);
   }
 
   /**
@@ -127,12 +127,12 @@ export class GuaranteedYieldModule extends BaseModule {
    * @param tier - The tier number.
    * @returns The cashback amount in the underlying token.
    */
-  async calculateCashback(amount: bigint, tier: number): Promise<bigint> {
+  async calculateCashback(amount: number, tier: number): Promise<number> {
     const [result] = await this.view<[string]>(
       `${this.addresses.aptree}::GuaranteedYieldLocking::calculate_cashback`,
       [amount, tier],
     );
-    return BigInt(result);
+    return Number(result);
   }
 
   /**
@@ -142,11 +142,11 @@ export class GuaranteedYieldModule extends BaseModule {
    *
    * @returns The vault balance in the underlying token.
    */
-  async getCashbackVaultBalance(): Promise<bigint> {
+  async getCashbackVaultBalance(): Promise<number> {
     const [result] = await this.view<[string]>(
       `${this.addresses.aptree}::GuaranteedYieldLocking::get_cashback_vault_balance`,
     );
-    return BigInt(result);
+    return Number(result);
   }
 
   /**
@@ -163,10 +163,10 @@ export class GuaranteedYieldModule extends BaseModule {
         `${this.addresses.aptree}::GuaranteedYieldLocking::get_protocol_stats`,
       );
     return {
-      totalLockedPrincipal: BigInt(totalLockedPrincipal),
-      totalAetHeld: BigInt(totalAetHeld),
-      totalCashbackPaid: BigInt(totalCashbackPaid),
-      totalYieldToTreasury: BigInt(totalYieldToTreasury),
+      totalLockedPrincipal: Number(totalLockedPrincipal),
+      totalAetHeld: Number(totalAetHeld),
+      totalCashbackPaid: Number(totalCashbackPaid),
+      totalYieldToTreasury: Number(totalYieldToTreasury),
     };
   }
 
@@ -181,7 +181,7 @@ export class GuaranteedYieldModule extends BaseModule {
    */
   async isPositionUnlockable(
     user: AccountAddressInput,
-    positionId: bigint,
+    positionId: number,
   ): Promise<boolean> {
     const [result] = await this.view<[boolean]>(
       `${this.addresses.aptree}::GuaranteedYieldLocking::is_position_unlockable`,
@@ -204,8 +204,8 @@ export class GuaranteedYieldModule extends BaseModule {
       [tier],
     );
     return {
-      durationSeconds: BigInt(durationSeconds),
-      yieldBps: BigInt(yieldBps),
+      durationSeconds: Number(durationSeconds),
+      yieldBps: Number(yieldBps),
     };
   }
 
@@ -249,7 +249,7 @@ export class GuaranteedYieldModule extends BaseModule {
    */
   async getEmergencyUnlockPreview(
     user: AccountAddressInput,
-    positionId: bigint,
+    positionId: number,
   ): Promise<GuaranteedEmergencyUnlockPreview> {
     const [payout, yieldForfeited, cashbackClawback] = await this.view<
       [string, string, string]
@@ -258,9 +258,9 @@ export class GuaranteedYieldModule extends BaseModule {
       [user, positionId],
     );
     return {
-      payout: BigInt(payout),
-      yieldForfeited: BigInt(yieldForfeited),
-      cashbackClawback: BigInt(cashbackClawback),
+      payout: Number(payout),
+      yieldForfeited: Number(yieldForfeited),
+      cashbackClawback: Number(cashbackClawback),
     };
   }
 
@@ -271,11 +271,11 @@ export class GuaranteedYieldModule extends BaseModule {
    *
    * @returns The maximum total locked principal.
    */
-  async getMaxTotalLocked(): Promise<bigint> {
+  async getMaxTotalLocked(): Promise<number> {
     const [result] = await this.view<[string]>(
       `${this.addresses.aptree}::GuaranteedYieldLocking::get_max_total_locked`,
     );
-    return BigInt(result);
+    return Number(result);
   }
 
   /**
@@ -285,11 +285,11 @@ export class GuaranteedYieldModule extends BaseModule {
    *
    * @returns The minimum deposit amount.
    */
-  async getMinDeposit(): Promise<bigint> {
+  async getMinDeposit(): Promise<number> {
     const [result] = await this.view<[string]>(
       `${this.addresses.aptree}::GuaranteedYieldLocking::get_min_deposit`,
     );
-    return BigInt(result);
+    return Number(result);
   }
 }
 

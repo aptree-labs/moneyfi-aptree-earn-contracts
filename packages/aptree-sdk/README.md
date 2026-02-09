@@ -51,8 +51,8 @@ const client = new AptreeClient({
 
 // 3. Build a transaction
 const txn = await client.bridge.builder.deposit(account.accountAddress, {
-  amount: 100_000_000n, // 1 token (8 decimals)
-  provider: 0n,
+  amount: 100_000_000, // 1 token (8 decimals)
+  provider: 0,
 });
 
 // 4. Sign and submit
@@ -84,10 +84,10 @@ client.<module>.resources.<method>(address)        → typed resource
 | Layer | Purpose | Returns |
 |---|---|---|
 | **`builder`** | Builds entry function transactions | `SimpleTransaction` |
-| **view functions** | Reads computed on-chain data | Typed values (`bigint`, structs, etc.) |
+| **view functions** | Reads computed on-chain data | Typed values (`number`, structs, etc.) |
 | **`resources`** | Reads raw on-chain Move resources | Typed resource interfaces |
 
-All `u64` and `u128` values are represented as `bigint` in TypeScript for full numeric range safety.
+All `u64` and `u128` values are represented as `number` in TypeScript.
 
 ---
 
@@ -156,29 +156,29 @@ The bridge module wraps `aptree::bridge` and `aptree::moneyfi_adapter` contracts
 ```typescript
 // Deposit tokens through the bridge — mints AET share tokens
 const txn = await client.bridge.builder.deposit(sender, {
-  amount: 100_000_000n,  // amount of underlying token (e.g. USDT)
-  provider: 0n,          // provider ID (0 = MoneyFi)
+  amount: 100_000_000,  // amount of underlying token (e.g. USDT)
+  provider: 0,          // provider ID (0 = MoneyFi)
 });
 
 // Request a withdrawal — burns AET for withdrawal tokens
 const txn = await client.bridge.builder.request(sender, {
-  amount: 50_000_000n,   // amount of AET to burn
-  minAmount: 900_000_000n, // min share price (u128, slippage protection)
+  amount: 50_000_000,   // amount of AET to burn
+  minAmount: 900_000_000, // min share price (u128, slippage protection)
 });
 
 // Complete a pending withdrawal — redeems withdrawal tokens
 const txn = await client.bridge.builder.withdraw(sender, {
-  amount: 50_000_000n,
-  provider: 0n,
+  amount: 50_000_000,
+  provider: 0,
 });
 ```
 
 **Lower-level adapter functions** (used internally by the bridge):
 
 ```typescript
-const txn = await client.bridge.builder.adapterDeposit(sender, { amount: 100_000_000n });
-const txn = await client.bridge.builder.adapterRequest(sender, { amount: 50_000_000n, minSharePrice: 900_000_000n });
-const txn = await client.bridge.builder.adapterWithdraw(sender, { amount: 50_000_000n });
+const txn = await client.bridge.builder.adapterDeposit(sender, { amount: 100_000_000 });
+const txn = await client.bridge.builder.adapterRequest(sender, { amount: 50_000_000, minSharePrice: 900_000_000 });
+const txn = await client.bridge.builder.adapterWithdraw(sender, { amount: 50_000_000 });
 ```
 
 #### View Functions
@@ -187,11 +187,11 @@ const txn = await client.bridge.builder.adapterWithdraw(sender, { amount: 50_000
 // Get the supported underlying token address (e.g. USDT metadata object)
 const tokenAddr: string = await client.bridge.getSupportedToken();
 
-// Get the current AET share price (scaled by 1e9; 1_000_000_000n = 1:1)
-const lpPrice: bigint = await client.bridge.getLpPrice();
+// Get the current AET share price (scaled by 1e9; 1_000_000_000 = 1:1)
+const lpPrice: number = await client.bridge.getLpPrice();
 
 // Get the pool's total estimated value
-const poolValue: bigint = await client.bridge.getPoolEstimatedValue();
+const poolValue: number = await client.bridge.getPoolEstimatedValue();
 ```
 
 #### Resources
@@ -231,30 +231,30 @@ import { LockingTier } from "@aptree/sdk";
 
 // Create a new lock position
 const txn = await client.locking.builder.depositLocked(sender, {
-  amount: 500_000_000n,
+  amount: 500_000_000,
   tier: LockingTier.Gold, // or just 3
 });
 
 // Add more tokens to an existing position (doesn't extend unlock date)
 const txn = await client.locking.builder.addToPosition(sender, {
-  positionId: 0n,
-  amount: 100_000_000n,
+  positionId: 0,
+  amount: 100_000_000,
 });
 
 // Withdraw early (limited by tier's BPS cap)
 const txn = await client.locking.builder.withdrawEarly(sender, {
-  positionId: 0n,
-  amount: 10_000_000n,
+  positionId: 0,
+  amount: 10_000_000,
 });
 
 // Withdraw fully after unlock date
 const txn = await client.locking.builder.withdrawUnlocked(sender, {
-  positionId: 0n,
+  positionId: 0,
 });
 
 // Emergency unlock — forfeits yield, returns principal
 const txn = await client.locking.builder.emergencyUnlock(sender, {
-  positionId: 0n,
+  positionId: 0,
 });
 ```
 
@@ -264,7 +264,7 @@ const txn = await client.locking.builder.emergencyUnlock(sender, {
 // Update early withdrawal limit for a tier
 const txn = await client.locking.builder.setTierLimit(admin, {
   tier: LockingTier.Bronze,
-  newLimitBps: 300n, // 3%
+  newLimitBps: 300, // 3%
 });
 
 // Enable or disable new lock deposits
@@ -281,24 +281,24 @@ const positions = await client.locking.getUserPositions("0xabc...");
 // → LockPosition[] (see types below)
 
 // Get a specific position
-const position = await client.locking.getPosition("0xabc...", 0n);
+const position = await client.locking.getPosition("0xabc...", 0);
 
 // Check how much can be withdrawn early
-const available: bigint = await client.locking.getEarlyWithdrawalAvailable("0xabc...", 0n);
+const available: number = await client.locking.getEarlyWithdrawalAvailable("0xabc...", 0);
 
 // Check if a position has passed its unlock date
-const unlocked: boolean = await client.locking.isPositionUnlocked("0xabc...", 0n);
+const unlocked: boolean = await client.locking.isPositionUnlocked("0xabc...", 0);
 
 // Get total locked value across all user positions
-const totalValue: bigint = await client.locking.getUserTotalLockedValue("0xabc...");
+const totalValue: number = await client.locking.getUserTotalLockedValue("0xabc...");
 
 // Get tier configuration
 const config = await client.locking.getTierConfig(LockingTier.Gold);
-// → { durationSeconds: 31536000n, earlyLimitBps: 500n }
+// → { durationSeconds: 31536000, earlyLimitBps: 500 }
 
 // Preview emergency unlock outcome
-const preview = await client.locking.getEmergencyUnlockPreview("0xabc...", 0n);
-// → { payout: bigint, forfeited: bigint }
+const preview = await client.locking.getEmergencyUnlockPreview("0xabc...", 0);
+// → { payout: number, forfeited: number }
 ```
 
 #### Resources
@@ -355,48 +355,48 @@ import { GuaranteedYieldTier } from "@aptree/sdk";
 
 // Create a guaranteed-yield position (receives instant cashback)
 const txn = await client.guaranteedYield.builder.depositGuaranteed(sender, {
-  amount: 1_000_000_000n,
+  amount: 1_000_000_000,
   tier: GuaranteedYieldTier.Gold,
-  minAetReceived: 0n, // slippage protection for AET minting
+  minAetReceived: 0, // slippage protection for AET minting
 });
 
 // Request unlock after maturity (step 1 of 2)
 const txn = await client.guaranteedYield.builder.requestUnlockGuaranteed(sender, {
-  positionId: 0n,
+  positionId: 0,
 });
 
 // Complete withdrawal after off-chain confirmation (step 2 of 2)
 const txn = await client.guaranteedYield.builder.withdrawGuaranteed(sender, {
-  positionId: 0n,
+  positionId: 0,
 });
 
 // Fund the cashback vault (anyone can call)
 const txn = await client.guaranteedYield.builder.fundCashbackVault(sender, {
-  amount: 500_000_000n,
+  amount: 500_000_000,
 });
 
 // Request emergency unlock — forfeits yield, claws back cashback (step 1 of 2)
 const txn = await client.guaranteedYield.builder.requestEmergencyUnlockGuaranteed(sender, {
-  positionId: 0n,
+  positionId: 0,
 });
 
 // Complete emergency withdrawal after off-chain confirmation (step 2 of 2)
 const txn = await client.guaranteedYield.builder.withdrawEmergencyGuaranteed(sender, {
-  positionId: 0n,
+  positionId: 0,
 });
 ```
 
 **Admin functions:**
 
 ```typescript
-await client.guaranteedYield.builder.setTierYield(admin, { tier: 4, newYieldBps: 600n });
+await client.guaranteedYield.builder.setTierYield(admin, { tier: 4, newYieldBps: 600 });
 await client.guaranteedYield.builder.setTreasury(admin, { newTreasury: "0x..." });
 await client.guaranteedYield.builder.setDepositsEnabled(admin, { enabled: true });
-await client.guaranteedYield.builder.adminWithdrawCashbackVault(admin, { amount: 100n });
+await client.guaranteedYield.builder.adminWithdrawCashbackVault(admin, { amount: 100 });
 await client.guaranteedYield.builder.proposeAdmin(admin, { newAdmin: "0x..." });
 await client.guaranteedYield.builder.acceptAdmin(newAdmin); // no args
-await client.guaranteedYield.builder.setMaxTotalLocked(admin, { newMax: 10_000_000_000n });
-await client.guaranteedYield.builder.setMinDeposit(admin, { newMin: 1_00000000n });
+await client.guaranteedYield.builder.setMaxTotalLocked(admin, { newMax: 10_000_000_000 });
+await client.guaranteedYield.builder.setMinDeposit(admin, { newMin: 1_00000000 });
 ```
 
 #### View Functions
@@ -406,28 +406,28 @@ await client.guaranteedYield.builder.setMinDeposit(admin, { newMin: 1_00000000n 
 const positions = await client.guaranteedYield.getUserGuaranteedPositions("0xabc...");
 
 // Get a specific position
-const pos = await client.guaranteedYield.getGuaranteedPosition("0xabc...", 0n);
+const pos = await client.guaranteedYield.getGuaranteedPosition("0xabc...", 0);
 
 // Get tier yield and duration
-const yieldBps: bigint = await client.guaranteedYield.getTierGuaranteedYield(4); // 500n = 5%
-const duration: bigint = await client.guaranteedYield.getTierDuration(4); // 31536000n
+const yieldBps: number = await client.guaranteedYield.getTierGuaranteedYield(4); // 500 = 5%
+const duration: number = await client.guaranteedYield.getTierDuration(4); // 31536000
 
 // Calculate cashback for a deposit
-const cashback: bigint = await client.guaranteedYield.calculateCashback(1_000_000_000n, 4);
+const cashback: number = await client.guaranteedYield.calculateCashback(1_000_000_000, 4);
 
 // Get cashback vault balance
-const balance: bigint = await client.guaranteedYield.getCashbackVaultBalance();
+const balance: number = await client.guaranteedYield.getCashbackVaultBalance();
 
 // Get protocol-wide statistics
 const stats = await client.guaranteedYield.getProtocolStats();
 // → { totalLockedPrincipal, totalAetHeld, totalCashbackPaid, totalYieldToTreasury }
 
 // Check if a position can be unlocked
-const unlockable: boolean = await client.guaranteedYield.isPositionUnlockable("0xabc...", 0n);
+const unlockable: boolean = await client.guaranteedYield.isPositionUnlockable("0xabc...", 0);
 
 // Get tier configuration (duration + yield in one call)
 const config = await client.guaranteedYield.getTierConfig(4);
-// → { durationSeconds: 31536000n, yieldBps: 500n }
+// → { durationSeconds: 31536000, yieldBps: 500 }
 
 // Get treasury address
 const treasury: string = await client.guaranteedYield.getTreasury();
@@ -436,12 +436,12 @@ const treasury: string = await client.guaranteedYield.getTreasury();
 const enabled: boolean = await client.guaranteedYield.areDepositsEnabled();
 
 // Preview emergency unlock outcome
-const preview = await client.guaranteedYield.getEmergencyUnlockPreview("0xabc...", 0n);
+const preview = await client.guaranteedYield.getEmergencyUnlockPreview("0xabc...", 0);
 // → { payout, yieldForfeited, cashbackClawback }
 
 // Get protocol limits
-const maxLocked: bigint = await client.guaranteedYield.getMaxTotalLocked();
-const minDeposit: bigint = await client.guaranteedYield.getMinDeposit();
+const maxLocked: number = await client.guaranteedYield.getMaxTotalLocked();
+const minDeposit: number = await client.guaranteedYield.getMinDeposit();
 ```
 
 #### Resources
@@ -496,23 +496,23 @@ All Glade builders accept a `swapParams` object conforming to the Panora router 
 interface PanoraSwapParams {
   optionalSigner: null;           // always null
   toWalletAddress: string;        // recipient of swap output
-  arg3: bigint;
+  arg3: number;
   arg4: number;
   arg5: Uint8Array;
   arg6: number[][][];
-  arg7: bigint[][][];
+  arg7: number[][][];
   arg8: boolean[][][];
   withdrawCase: number[][];       // 1,2 = FA; 3,4 = Coin
   arg10: string[][][];
   faAddresses: string[][];        // FA metadata addresses
   arg12: string[][];
   arg13: number[][][][][] | null; // Option — null for none
-  arg14: bigint[][][];
+  arg14: number[][][];
   arg15: number[][][] | null;     // Option — null for none
   arg16: string;
-  fromTokenAmounts: bigint[];     // input amounts
-  arg18: bigint;
-  arg19: bigint;
+  fromTokenAmounts: number[];     // input amounts
+  arg18: number;
+  arg19: number;
   arg20: string;
 }
 ```
@@ -523,37 +523,37 @@ interface PanoraSwapParams {
 // Swap any token → deposit into bridge
 const txn = await client.glade.builder.deposit(sender, {
   swapParams: panoraQuoteParams,
-  depositAmount: 100_000_000n,
-  provider: 0n,
+  depositAmount: 100_000_000,
+  provider: 0,
 }, typeArgs);
 
 // Bridge withdraw → swap to any token
 const txn = await client.glade.builder.withdraw(sender, {
   swapParams: panoraQuoteParams,
-  withdrawalAmount: 100_000_000n,
-  provider: 0n,
+  withdrawalAmount: 100_000_000,
+  provider: 0,
 }, typeArgs);
 
 // Swap any token → guaranteed-yield deposit
 const txn = await client.glade.builder.depositGuaranteed(sender, {
   swapParams: panoraQuoteParams,
-  depositAmount: 100_000_000n,
+  depositAmount: 100_000_000,
   tier: GuaranteedYieldTier.Silver,
-  minAetReceived: 0n,
+  minAetReceived: 0,
 }, typeArgs);
 
 // Complete guaranteed withdrawal + swap output to any token
 // (request step must be done via client.guaranteedYield.builder.requestUnlockGuaranteed first)
 const txn = await client.glade.builder.unlockGuaranteed(sender, {
   swapParams: panoraQuoteParams,
-  positionId: 0n,
+  positionId: 0,
 }, typeArgs);
 
 // Complete emergency guaranteed withdrawal + swap output to any token
 // (request step must be done via client.guaranteedYield.builder.requestEmergencyUnlockGuaranteed first)
 const txn = await client.glade.builder.emergencyUnlockGuaranteed(sender, {
   swapParams: panoraQuoteParams,
-  positionId: 0n,
+  positionId: 0,
 }, typeArgs);
 
 // Standalone Panora swap (no bridge/locking)
@@ -574,13 +574,13 @@ The mock vault module wraps `moneyfi_mock::vault`. It is a testing implementatio
 // Deposit into the mock vault
 const txn = await client.mockVault.builder.deposit(sender, {
   token: tokenMetadataAddress,
-  amount: 100_000_000n,
+  amount: 100_000_000,
 });
 
 // Request a withdrawal
 const txn = await client.mockVault.builder.requestWithdraw(sender, {
   token: tokenMetadataAddress,
-  amount: 50_000_000n,
+  amount: 50_000_000,
 });
 
 // Complete a pending withdrawal
@@ -592,24 +592,24 @@ const txn = await client.mockVault.builder.withdrawRequestedAmount(sender, {
 **Admin / test-tuning functions:**
 
 ```typescript
-await client.mockVault.builder.setYieldMultiplier(admin, { multiplierBps: 10_500n }); // 105%
-await client.mockVault.builder.simulateYield(admin, { yieldBps: 100n });  // +1%
-await client.mockVault.builder.simulateLoss(admin, { lossBps: 50n });     // -0.5%
+await client.mockVault.builder.setYieldMultiplier(admin, { multiplierBps: 10_500 }); // 105%
+await client.mockVault.builder.simulateYield(admin, { yieldBps: 100 });  // +1%
+await client.mockVault.builder.simulateLoss(admin, { lossBps: 50 });     // -0.5%
 await client.mockVault.builder.resetVault(admin);
-await client.mockVault.builder.setTotalDeposits(admin, { amount: 1_000_000_000n });
+await client.mockVault.builder.setTotalDeposits(admin, { amount: 1_000_000_000 });
 ```
 
 #### View Functions
 
 ```typescript
-const fundValue: bigint = await client.mockVault.estimateTotalFundValue("0xabc...", tokenAddr);
+const fundValue: number = await client.mockVault.estimateTotalFundValue("0xabc...", tokenAddr);
 const vaultAddr: string = await client.mockVault.getVaultAddress();
-const multiplier: bigint = await client.mockVault.getYieldMultiplier();
-const deposits: bigint = await client.mockVault.getTotalDeposits();
-const pending: bigint = await client.mockVault.getPendingWithdrawals();
+const multiplier: number = await client.mockVault.getYieldMultiplier();
+const deposits: number = await client.mockVault.getTotalDeposits();
+const pending: number = await client.mockVault.getPendingWithdrawals();
 
 const depositorState = await client.mockVault.getDepositorState("0xabc...");
-// → { deposited: bigint, pendingWithdrawal: bigint }
+// → { deposited: number, pendingWithdrawal: number }
 ```
 
 #### Resources
@@ -633,7 +633,7 @@ import { Account, Ed25519PrivateKey } from "@aptos-labs/ts-sdk";
 
 // 1. Build the transaction
 const txn = await client.locking.builder.depositLocked(account.accountAddress, {
-  amount: 100_000_000n,
+  amount: 100_000_000,
   tier: LockingTier.Gold,
 });
 
@@ -686,8 +686,8 @@ import {
 const yieldPercent = Number(yieldBps) / Number(BPS_DENOMINATOR) * 100;
 
 // AET share price interpretation
-// AET_SCALE = 1_000_000_000n (1e9)
-// A share price of 1_050_000_000n means 1 AET = 1.05 underlying tokens
+// AET_SCALE = 1_000_000_000 (1e9)
+// A share price of 1_050_000_000 means 1 AET = 1.05 underlying tokens
 
 // Resource account seeds (for deriving addresses)
 SEEDS.BRIDGE                         // "APTreeEarn"
@@ -699,14 +699,14 @@ SEEDS.GUARANTEED_YIELD_CASHBACK_VAULT // "GuaranteedYieldCashbackVault"
 SEEDS.MOCK_MONEYFI_VAULT             // "MockMoneyFiVault"
 
 // Lock durations (in seconds)
-LOCKING_DURATIONS.BRONZE  // 7_776_000n  (90 days)
-LOCKING_DURATIONS.SILVER  // 15_552_000n (180 days)
-LOCKING_DURATIONS.GOLD    // 31_536_000n (365 days)
+LOCKING_DURATIONS.BRONZE  // 7_776_000  (90 days)
+LOCKING_DURATIONS.SILVER  // 15_552_000 (180 days)
+LOCKING_DURATIONS.GOLD    // 31_536_000 (365 days)
 
-GUARANTEED_YIELD_DURATIONS.STARTER // 2_592_000n  (30 days)
-GUARANTEED_YIELD_DURATIONS.BRONZE  // 7_776_000n  (90 days)
-GUARANTEED_YIELD_DURATIONS.SILVER  // 15_552_000n (180 days)
-GUARANTEED_YIELD_DURATIONS.GOLD    // 31_536_000n (365 days)
+GUARANTEED_YIELD_DURATIONS.STARTER // 2_592_000  (30 days)
+GUARANTEED_YIELD_DURATIONS.BRONZE  // 7_776_000  (90 days)
+GUARANTEED_YIELD_DURATIONS.SILVER  // 15_552_000 (180 days)
+GUARANTEED_YIELD_DURATIONS.GOLD    // 31_536_000 (365 days)
 ```
 
 ---
@@ -738,8 +738,8 @@ GUARANTEED_YIELD_DURATIONS.GOLD    // 31_536_000n (365 days)
 | `builder.adapterWithdraw(sender, args)` | Low-level adapter withdraw | `SimpleTransaction` |
 | **View Functions** | | |
 | `getSupportedToken()` | Underlying token address | `string` |
-| `getLpPrice()` | AET share price (scaled 1e9) | `bigint` |
-| `getPoolEstimatedValue()` | Total pool value | `bigint` |
+| `getLpPrice()` | AET share price (scaled 1e9) | `number` |
+| `getPoolEstimatedValue()` | Total pool value | `number` |
 | **Resources** | | |
 | `resources.getBridgeState(addr)` | Bridge state resource | `BridgeState` |
 | `resources.getMoneyFiBridgeState(addr)` | Adapter state resource | `MoneyFiBridgeState` |
@@ -761,9 +761,9 @@ GUARANTEED_YIELD_DURATIONS.GOLD    // 31_536_000n (365 days)
 | **View Functions** | | |
 | `getUserPositions(user)` | All user lock positions | `LockPosition[]` |
 | `getPosition(user, positionId)` | Single position | `LockPosition` |
-| `getEarlyWithdrawalAvailable(user, positionId)` | Amount available for early withdrawal | `bigint` |
+| `getEarlyWithdrawalAvailable(user, positionId)` | Amount available for early withdrawal | `number` |
 | `isPositionUnlocked(user, positionId)` | Whether position has matured | `boolean` |
-| `getUserTotalLockedValue(user)` | Total locked across all positions | `bigint` |
+| `getUserTotalLockedValue(user)` | Total locked across all positions | `number` |
 | `getTierConfig(tier)` | Tier duration + early limit | `TierConfig` |
 | `getEmergencyUnlockPreview(user, positionId)` | Preview emergency unlock | `EmergencyUnlockPreview` |
 | **Resources** | | |
@@ -792,18 +792,18 @@ GUARANTEED_YIELD_DURATIONS.GOLD    // 31_536_000n (365 days)
 | **View Functions** | | |
 | `getUserGuaranteedPositions(user)` | All user positions | `GuaranteedLockPosition[]` |
 | `getGuaranteedPosition(user, positionId)` | Single position | `GuaranteedLockPosition` |
-| `getTierGuaranteedYield(tier)` | Yield rate in BPS | `bigint` |
-| `getTierDuration(tier)` | Lock duration in seconds | `bigint` |
-| `calculateCashback(amount, tier)` | Preview cashback amount | `bigint` |
-| `getCashbackVaultBalance()` | Vault balance | `bigint` |
+| `getTierGuaranteedYield(tier)` | Yield rate in BPS | `number` |
+| `getTierDuration(tier)` | Lock duration in seconds | `number` |
+| `calculateCashback(amount, tier)` | Preview cashback amount | `number` |
+| `getCashbackVaultBalance()` | Vault balance | `number` |
 | `getProtocolStats()` | Protocol-wide statistics | `ProtocolStats` |
 | `isPositionUnlockable(user, positionId)` | Whether position can be unlocked | `boolean` |
 | `getTierConfig(tier)` | Duration + yield in one call | `GuaranteedTierConfig` |
 | `getTreasury()` | Treasury address | `string` |
 | `areDepositsEnabled()` | Deposit toggle state | `boolean` |
 | `getEmergencyUnlockPreview(user, positionId)` | Preview emergency unlock | `GuaranteedEmergencyUnlockPreview` |
-| `getMaxTotalLocked()` | Max total locked cap | `bigint` |
-| `getMinDeposit()` | Min deposit amount | `bigint` |
+| `getMaxTotalLocked()` | Max total locked cap | `number` |
+| `getMinDeposit()` | Min deposit amount | `number` |
 | **Resources** | | |
 | `resources.getUserGuaranteedPositions(user)` | Raw user positions resource | `UserGuaranteedPositions` |
 
@@ -833,11 +833,11 @@ GUARANTEED_YIELD_DURATIONS.GOLD    // 31_536_000n (365 days)
 | `builder.resetVault(admin)` | Admin: reset vault state | `SimpleTransaction` |
 | `builder.setTotalDeposits(admin, args)` | Admin: set total deposits | `SimpleTransaction` |
 | **View Functions** | | |
-| `estimateTotalFundValue(depositor, token)` | Estimated fund value | `bigint` |
+| `estimateTotalFundValue(depositor, token)` | Estimated fund value | `number` |
 | `getVaultAddress()` | Vault resource address | `string` |
-| `getYieldMultiplier()` | Current yield multiplier BPS | `bigint` |
-| `getTotalDeposits()` | Total deposits | `bigint` |
-| `getPendingWithdrawals()` | Total pending withdrawals | `bigint` |
+| `getYieldMultiplier()` | Current yield multiplier BPS | `number` |
+| `getTotalDeposits()` | Total deposits | `number` |
+| `getPendingWithdrawals()` | Total pending withdrawals | `number` |
 | `getDepositorState(depositor)` | Depositor's state | `DepositorStateView` |
 | **Resources** | | |
 | `resources.getMockVaultState(addr)` | Raw vault state | `MockVaultState` |

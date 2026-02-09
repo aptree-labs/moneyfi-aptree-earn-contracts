@@ -36,18 +36,18 @@ export interface UserGuaranteedPositions {
  * Parsed return type for `get_protocol_stats() -> (total_locked, total_aet, total_cashback, total_yield_to_treasury)`.
  */
 export interface ProtocolStats {
-  totalLockedPrincipal: bigint;
-  totalAetHeld: bigint;
-  totalCashbackPaid: bigint;
-  totalYieldToTreasury: bigint;
+  totalLockedPrincipal: number;
+  totalAetHeld: number;
+  totalCashbackPaid: number;
+  totalYieldToTreasury: number;
 }
 
 /** Parsed return type for `get_tier_config(tier) -> (duration, yield_bps)`. */
 export interface GuaranteedTierConfig {
   /** Lock duration in seconds. */
-  durationSeconds: bigint;
+  durationSeconds: number;
   /** Guaranteed yield in basis points. */
-  yieldBps: bigint;
+  yieldBps: number;
 }
 
 /**
@@ -55,11 +55,11 @@ export interface GuaranteedTierConfig {
  */
 export interface GuaranteedEmergencyUnlockPreview {
   /** Amount the user receives. */
-  payout: bigint;
+  payout: number;
   /** Amount of yield forfeited. */
-  yieldForfeited: bigint;
+  yieldForfeited: number;
   /** Cashback amount clawed back. */
-  cashbackClawback: bigint;
+  cashbackClawback: number;
 }
 
 // ─── Builder Arg Types ───────────────────────────────────────────────────────
@@ -67,11 +67,11 @@ export interface GuaranteedEmergencyUnlockPreview {
 /** Arguments for `GuaranteedYieldLocking::deposit_guaranteed`. */
 export interface DepositGuaranteedArgs {
   /** Amount of underlying tokens to deposit. */
-  amount: bigint;
+  amount: number;
   /** Lock tier (1=Starter, 2=Bronze, 3=Silver, 4=Gold). Use {@link GuaranteedYieldTier} enum. */
   tier: number;
   /** Minimum AET tokens to receive (slippage protection). */
-  minAetReceived: bigint;
+  minAetReceived: number;
 }
 
 /**
@@ -83,7 +83,7 @@ export interface DepositGuaranteedArgs {
  */
 export interface RequestUnlockGuaranteedArgs {
   /** ID of the position to request unlock for. */
-  positionId: bigint;
+  positionId: number;
 }
 
 /**
@@ -94,13 +94,13 @@ export interface RequestUnlockGuaranteedArgs {
  */
 export interface WithdrawGuaranteedArgs {
   /** ID of the position to withdraw. */
-  positionId: bigint;
+  positionId: number;
 }
 
 /** Arguments for `GuaranteedYieldLocking::fund_cashback_vault`. */
 export interface FundCashbackVaultArgs {
   /** Amount to fund the cashback vault with. */
-  amount: bigint;
+  amount: number;
 }
 
 /**
@@ -112,7 +112,7 @@ export interface FundCashbackVaultArgs {
  */
 export interface RequestEmergencyUnlockGuaranteedArgs {
   /** ID of the position to emergency unlock. */
-  positionId: bigint;
+  positionId: number;
 }
 
 /**
@@ -123,7 +123,7 @@ export interface RequestEmergencyUnlockGuaranteedArgs {
  */
 export interface WithdrawEmergencyGuaranteedArgs {
   /** ID of the position to complete emergency withdrawal for. */
-  positionId: bigint;
+  positionId: number;
 }
 
 /** Arguments for `GuaranteedYieldLocking::set_tier_yield` (admin only). */
@@ -131,7 +131,7 @@ export interface SetTierYieldArgs {
   /** Tier to update. */
   tier: number;
   /** New yield in basis points. */
-  newYieldBps: bigint;
+  newYieldBps: number;
 }
 
 /** Arguments for `GuaranteedYieldLocking::set_treasury` (admin only). */
@@ -149,7 +149,7 @@ export interface SetDepositsEnabledArgs {
 /** Arguments for `GuaranteedYieldLocking::admin_withdraw_cashback_vault` (admin only). */
 export interface AdminWithdrawCashbackVaultArgs {
   /** Amount to withdraw from the cashback vault. */
-  amount: bigint;
+  amount: number;
 }
 
 /** Arguments for `GuaranteedYieldLocking::propose_admin` (admin only). */
@@ -161,11 +161,11 @@ export interface ProposeAdminArgs {
 /** Arguments for `GuaranteedYieldLocking::set_max_total_locked` (admin only). */
 export interface SetMaxTotalLockedArgs {
   /** New maximum total locked principal. */
-  newMax: bigint;
+  newMax: number;
 }
 
 /** Arguments for `GuaranteedYieldLocking::set_min_deposit` (admin only). */
 export interface SetMinDepositArgs {
   /** New minimum deposit amount. */
-  newMin: bigint;
+  newMin: number;
 }

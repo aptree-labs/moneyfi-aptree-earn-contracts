@@ -301,15 +301,15 @@ var BridgeModule = class extends BaseModule {
    *
    * Calls `moneyfi_adapter::get_lp_price`.
    *
-   * The price is scaled by AET_SCALE (1e9). A value of `1_000_000_000n` means 1:1.
+   * The price is scaled by AET_SCALE (1e9). A value of `1_000_000_000` means 1:1.
    *
-   * @returns The current share price as a bigint (u128).
+   * @returns The current share price as a number (u128).
    */
   async getLpPrice() {
     const [result] = await this.view(
       `${this.addresses.aptree}::moneyfi_adapter::get_lp_price`
     );
-    return BigInt(result);
+    return Number(result);
   }
   /**
    * Get the total estimated value of the pool in the underlying token.
@@ -322,7 +322,7 @@ var BridgeModule = class extends BaseModule {
     const [result] = await this.view(
       `${this.addresses.aptree}::moneyfi_adapter::get_pool_estimated_value`
     );
-    return BigInt(result);
+    return Number(result);
   }
 };
 
@@ -548,7 +548,7 @@ var LockingModule = class extends BaseModule {
       `${this.addresses.aptree}::locking::get_early_withdrawal_available`,
       [user, positionId]
     );
-    return BigInt(result);
+    return Number(result);
   }
   /**
    * Check if a lock position has passed its unlock date.
@@ -579,7 +579,7 @@ var LockingModule = class extends BaseModule {
       `${this.addresses.aptree}::locking::get_user_total_locked_value`,
       [user]
     );
-    return BigInt(result);
+    return Number(result);
   }
   /**
    * Get the configuration for a specific tier.
@@ -595,8 +595,8 @@ var LockingModule = class extends BaseModule {
       [tier]
     );
     return {
-      durationSeconds: BigInt(durationSeconds),
-      earlyLimitBps: BigInt(earlyLimitBps)
+      durationSeconds: Number(durationSeconds),
+      earlyLimitBps: Number(earlyLimitBps)
     };
   }
   /**
@@ -614,8 +614,8 @@ var LockingModule = class extends BaseModule {
       [user, positionId]
     );
     return {
-      payout: BigInt(payout),
-      forfeited: BigInt(forfeited)
+      payout: Number(payout),
+      forfeited: Number(forfeited)
     };
   }
 };
@@ -946,7 +946,7 @@ var GuaranteedYieldModule = class extends BaseModule {
       `${this.addresses.aptree}::GuaranteedYieldLocking::get_tier_guaranteed_yield`,
       [tier]
     );
-    return BigInt(result);
+    return Number(result);
   }
   /**
    * Get the lock duration (in seconds) for a tier.
@@ -961,7 +961,7 @@ var GuaranteedYieldModule = class extends BaseModule {
       `${this.addresses.aptree}::GuaranteedYieldLocking::get_tier_duration`,
       [tier]
     );
-    return BigInt(result);
+    return Number(result);
   }
   /**
    * Calculate the cashback amount for a given deposit amount and tier.
@@ -977,7 +977,7 @@ var GuaranteedYieldModule = class extends BaseModule {
       `${this.addresses.aptree}::GuaranteedYieldLocking::calculate_cashback`,
       [amount, tier]
     );
-    return BigInt(result);
+    return Number(result);
   }
   /**
    * Get the current balance of the cashback vault.
@@ -990,7 +990,7 @@ var GuaranteedYieldModule = class extends BaseModule {
     const [result] = await this.view(
       `${this.addresses.aptree}::GuaranteedYieldLocking::get_cashback_vault_balance`
     );
-    return BigInt(result);
+    return Number(result);
   }
   /**
    * Get protocol-wide statistics.
@@ -1005,10 +1005,10 @@ var GuaranteedYieldModule = class extends BaseModule {
       `${this.addresses.aptree}::GuaranteedYieldLocking::get_protocol_stats`
     );
     return {
-      totalLockedPrincipal: BigInt(totalLockedPrincipal),
-      totalAetHeld: BigInt(totalAetHeld),
-      totalCashbackPaid: BigInt(totalCashbackPaid),
-      totalYieldToTreasury: BigInt(totalYieldToTreasury)
+      totalLockedPrincipal: Number(totalLockedPrincipal),
+      totalAetHeld: Number(totalAetHeld),
+      totalCashbackPaid: Number(totalCashbackPaid),
+      totalYieldToTreasury: Number(totalYieldToTreasury)
     };
   }
   /**
@@ -1041,8 +1041,8 @@ var GuaranteedYieldModule = class extends BaseModule {
       [tier]
     );
     return {
-      durationSeconds: BigInt(durationSeconds),
-      yieldBps: BigInt(yieldBps)
+      durationSeconds: Number(durationSeconds),
+      yieldBps: Number(yieldBps)
     };
   }
   /**
@@ -1087,9 +1087,9 @@ var GuaranteedYieldModule = class extends BaseModule {
       [user, positionId]
     );
     return {
-      payout: BigInt(payout),
-      yieldForfeited: BigInt(yieldForfeited),
-      cashbackClawback: BigInt(cashbackClawback)
+      payout: Number(payout),
+      yieldForfeited: Number(yieldForfeited),
+      cashbackClawback: Number(cashbackClawback)
     };
   }
   /**
@@ -1103,7 +1103,7 @@ var GuaranteedYieldModule = class extends BaseModule {
     const [result] = await this.view(
       `${this.addresses.aptree}::GuaranteedYieldLocking::get_max_total_locked`
     );
-    return BigInt(result);
+    return Number(result);
   }
   /**
    * Get the minimum deposit amount for new positions.
@@ -1116,7 +1116,7 @@ var GuaranteedYieldModule = class extends BaseModule {
     const [result] = await this.view(
       `${this.addresses.aptree}::GuaranteedYieldLocking::get_min_deposit`
     );
-    return BigInt(result);
+    return Number(result);
   }
 };
 
@@ -1308,7 +1308,7 @@ var MockVaultModule = class extends BaseModule {
       `${this.addresses.moneyfi}::vault::estimate_total_fund_value`,
       [depositor, token]
     );
-    return BigInt(result);
+    return Number(result);
   }
   /**
    * Get the vault's resource account address.
@@ -1334,7 +1334,7 @@ var MockVaultModule = class extends BaseModule {
     const [result] = await this.view(
       `${this.addresses.moneyfi}::vault::get_yield_multiplier`
     );
-    return BigInt(result);
+    return Number(result);
   }
   /**
    * Get the total deposits held in the vault.
@@ -1347,7 +1347,7 @@ var MockVaultModule = class extends BaseModule {
     const [result] = await this.view(
       `${this.addresses.moneyfi}::vault::get_total_deposits`
     );
-    return BigInt(result);
+    return Number(result);
   }
   /**
    * Get the total pending withdrawals in the vault.
@@ -1360,7 +1360,7 @@ var MockVaultModule = class extends BaseModule {
     const [result] = await this.view(
       `${this.addresses.moneyfi}::vault::get_pending_withdrawals`
     );
-    return BigInt(result);
+    return Number(result);
   }
   /**
    * Get the state of a specific depositor.
@@ -1376,8 +1376,8 @@ var MockVaultModule = class extends BaseModule {
       [depositor]
     );
     return {
-      deposited: BigInt(deposited),
-      pendingWithdrawal: BigInt(pendingWithdrawal)
+      deposited: Number(deposited),
+      pendingWithdrawal: Number(pendingWithdrawal)
     };
   }
 };
@@ -1609,9 +1609,9 @@ var GuaranteedYieldTier = /* @__PURE__ */ ((GuaranteedYieldTier2) => {
 })(GuaranteedYieldTier || {});
 
 // src/utils/constants.ts
-var BPS_DENOMINATOR = 10000n;
-var AET_SCALE = 1000000000n;
-var PRECISION = 1000000000000n;
+var BPS_DENOMINATOR = 1e4;
+var AET_SCALE = 1e9;
+var PRECISION = 1e12;
 var SEEDS = {
   BRIDGE: "APTreeEarn",
   MONEYFI_CONTROLLER: "MoneyFiBridgeController",
@@ -1623,21 +1623,21 @@ var SEEDS = {
 };
 var LOCKING_DURATIONS = {
   /** 90 days */
-  BRONZE: 7776000n,
+  BRONZE: 7776e3,
   /** 180 days */
-  SILVER: 15552000n,
+  SILVER: 15552e3,
   /** 365 days */
-  GOLD: 31536000n
+  GOLD: 31536e3
 };
 var GUARANTEED_YIELD_DURATIONS = {
   /** 30 days */
-  STARTER: 2592000n,
+  STARTER: 2592e3,
   /** 90 days */
-  BRONZE: 7776000n,
+  BRONZE: 7776e3,
   /** 180 days */
-  SILVER: 15552000n,
+  SILVER: 15552e3,
   /** 365 days */
-  GOLD: 31536000n
+  GOLD: 31536e3
 };
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {

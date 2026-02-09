@@ -43,7 +43,7 @@ declare abstract class BaseModule {
      * @param typeArguments - Generic type arguments, if any.
      * @returns A built {@link SimpleTransaction} ready for signing and submission.
      */
-    protected buildTransaction(sender: AccountAddressInput, functionId: MoveFunctionId, functionArguments: Array<string | number | bigint | boolean | Uint8Array | AccountAddressInput>, typeArguments?: string[]): Promise<SimpleTransaction>;
+    protected buildTransaction(sender: AccountAddressInput, functionId: MoveFunctionId, functionArguments: Array<string | number | boolean | Uint8Array | AccountAddressInput>, typeArguments?: string[]): Promise<SimpleTransaction>;
     /**
      * Call an on-chain view function and return the raw result array.
      *
@@ -52,7 +52,7 @@ declare abstract class BaseModule {
      * @param typeArguments - Generic type arguments, if any.
      * @returns The result array returned by the view function.
      */
-    protected view<T extends Array<unknown>>(functionId: MoveFunctionId, functionArguments?: Array<string | number | bigint | boolean | Uint8Array | AccountAddressInput>, typeArguments?: string[]): Promise<T>;
+    protected view<T extends Array<unknown>>(functionId: MoveFunctionId, functionArguments?: Array<string | number | boolean | Uint8Array | AccountAddressInput>, typeArguments?: string[]): Promise<T>;
     /**
      * Read an on-chain Move resource with a typed return value.
      *
@@ -97,40 +97,40 @@ interface BridgeWithdrawalTokenState {
 /** Arguments for `bridge::deposit`. */
 interface BridgeDepositArgs {
     /** The amount of the underlying token to deposit. */
-    amount: bigint;
+    amount: number;
     /** The provider identifier (e.g. 0 for MoneyFi). */
-    provider: bigint;
+    provider: number;
 }
 /** Arguments for `bridge::request`. */
 interface BridgeRequestArgs {
     /** The amount of share tokens (AET) to request withdrawal for. */
-    amount: bigint;
+    amount: number;
     /** Minimum acceptable share price (u128) as slippage protection. */
-    minAmount: bigint;
+    minAmount: number;
 }
 /** Arguments for `bridge::withdraw`. */
 interface BridgeWithdrawArgs {
     /** The amount of underlying tokens to withdraw. */
-    amount: bigint;
+    amount: number;
     /** The provider identifier. */
-    provider: bigint;
+    provider: number;
 }
 /** Arguments for `moneyfi_adapter::deposit`. */
 interface MoneyFiAdapterDepositArgs {
     /** The amount of the underlying token to deposit. */
-    amount: bigint;
+    amount: number;
 }
 /** Arguments for `moneyfi_adapter::request`. */
 interface MoneyFiAdapterRequestArgs {
     /** The amount of AET share tokens to burn for withdrawal. */
-    amount: bigint;
+    amount: number;
     /** Minimum share price (u128) for slippage protection. */
-    minSharePrice: bigint;
+    minSharePrice: number;
 }
 /** Arguments for `moneyfi_adapter::withdraw`. */
 interface MoneyFiAdapterWithdrawArgs {
     /** The amount of underlying tokens to withdraw. */
-    amount: bigint;
+    amount: number;
 }
 
 /**
@@ -142,8 +142,8 @@ interface MoneyFiAdapterWithdrawArgs {
  * @example
  * ```typescript
  * const txn = await client.bridge.builder.deposit(senderAddress, {
- *   amount: 100_000_000n,
- *   provider: 0n,
+ *   amount: 100_000_000,
+ *   provider: 0,
  * });
  * const signed = client.aptos.transaction.sign({ signer, transaction: txn });
  * const result = await client.aptos.transaction.submit.simple({ transaction: txn, senderAuthenticator: signed });
@@ -279,7 +279,7 @@ declare class BridgeResources extends BaseModule {
  * @example
  * ```typescript
  * // Build and submit a deposit transaction
- * const txn = await client.bridge.builder.deposit(sender, { amount: 1_00000000n, provider: 0n });
+ * const txn = await client.bridge.builder.deposit(sender, { amount: 1_00000000, provider: 0 });
  *
  * // Query the current LP price
  * const lpPrice = await client.bridge.getLpPrice();
@@ -307,11 +307,11 @@ declare class BridgeModule extends BaseModule {
      *
      * Calls `moneyfi_adapter::get_lp_price`.
      *
-     * The price is scaled by AET_SCALE (1e9). A value of `1_000_000_000n` means 1:1.
+     * The price is scaled by AET_SCALE (1e9). A value of `1_000_000_000` means 1:1.
      *
-     * @returns The current share price as a bigint (u128).
+     * @returns The current share price as a number (u128).
      */
-    getLpPrice(): Promise<bigint>;
+    getLpPrice(): Promise<number>;
     /**
      * Get the total estimated value of the pool in the underlying token.
      *
@@ -319,7 +319,7 @@ declare class BridgeModule extends BaseModule {
      *
      * @returns The pool's estimated total value.
      */
-    getPoolEstimatedValue(): Promise<bigint>;
+    getPoolEstimatedValue(): Promise<number>;
 }
 
 /**
@@ -363,54 +363,54 @@ interface LockConfig {
 /** Parsed return type for `locking::get_tier_config(tier) -> (duration, early_limit_bps)`. */
 interface TierConfig {
     /** Lock duration in seconds. */
-    durationSeconds: bigint;
+    durationSeconds: number;
     /** Early withdrawal limit in basis points. */
-    earlyLimitBps: bigint;
+    earlyLimitBps: number;
 }
 /** Parsed return type for `locking::get_emergency_unlock_preview(user, position_id) -> (payout, forfeited)`. */
 interface EmergencyUnlockPreview {
     /** Amount the user receives. */
-    payout: bigint;
+    payout: number;
     /** Amount forfeited by the user. */
-    forfeited: bigint;
+    forfeited: number;
 }
 /** Arguments for `locking::deposit_locked`. */
 interface DepositLockedArgs {
     /** Amount of underlying tokens to lock. */
-    amount: bigint;
+    amount: number;
     /** Lock tier (1=Bronze, 2=Silver, 3=Gold). Use {@link LockingTier} enum. */
     tier: number;
 }
 /** Arguments for `locking::add_to_position`. */
 interface AddToPositionArgs {
     /** ID of the existing position to add to. */
-    positionId: bigint;
+    positionId: number;
     /** Additional amount to lock. */
-    amount: bigint;
+    amount: number;
 }
 /** Arguments for `locking::withdraw_early`. */
 interface WithdrawEarlyArgs {
     /** ID of the position to withdraw from. */
-    positionId: bigint;
+    positionId: number;
     /** Amount to withdraw early. */
-    amount: bigint;
+    amount: number;
 }
 /** Arguments for `locking::withdraw_unlocked`. */
 interface WithdrawUnlockedArgs {
     /** ID of the unlocked position to withdraw. */
-    positionId: bigint;
+    positionId: number;
 }
 /** Arguments for `locking::emergency_unlock`. */
 interface EmergencyUnlockArgs {
     /** ID of the position to emergency unlock. */
-    positionId: bigint;
+    positionId: number;
 }
 /** Arguments for `locking::set_tier_limit` (admin only). */
 interface SetTierLimitArgs {
     /** Tier to update (1=Bronze, 2=Silver, 3=Gold). */
     tier: number;
     /** New early withdrawal limit in basis points. */
-    newLimitBps: bigint;
+    newLimitBps: number;
 }
 /** Arguments for `locking::set_locks_enabled` (admin only). */
 interface SetLocksEnabledArgs {
@@ -426,7 +426,7 @@ interface SetLocksEnabledArgs {
  * @example
  * ```typescript
  * const txn = await client.locking.builder.depositLocked(sender, {
- *   amount: 100_000_000n,
+ *   amount: 100_000_000,
  *   tier: LockingTier.Gold,
  * });
  * ```
@@ -564,11 +564,11 @@ declare class LockingResources extends BaseModule {
  * const positions = await client.locking.getUserPositions("0xabc...");
  *
  * // Check if a position is unlocked
- * const unlocked = await client.locking.isPositionUnlocked("0xabc...", 0n);
+ * const unlocked = await client.locking.isPositionUnlocked("0xabc...", 0);
  *
  * // Build a deposit transaction
  * const txn = await client.locking.builder.depositLocked(sender, {
- *   amount: 100_000_000n,
+ *   amount: 100_000_000,
  *   tier: LockingTier.Gold,
  * });
  * ```
@@ -597,7 +597,7 @@ declare class LockingModule extends BaseModule {
      * @param positionId - The position ID.
      * @returns The {@link LockPosition} struct.
      */
-    getPosition(user: AccountAddressInput, positionId: bigint): Promise<LockPosition>;
+    getPosition(user: AccountAddressInput, positionId: number): Promise<LockPosition>;
     /**
      * Get the amount available for early withdrawal from a position.
      *
@@ -610,7 +610,7 @@ declare class LockingModule extends BaseModule {
      * @param positionId - The position ID.
      * @returns The amount available for early withdrawal.
      */
-    getEarlyWithdrawalAvailable(user: AccountAddressInput, positionId: bigint): Promise<bigint>;
+    getEarlyWithdrawalAvailable(user: AccountAddressInput, positionId: number): Promise<number>;
     /**
      * Check if a lock position has passed its unlock date.
      *
@@ -620,7 +620,7 @@ declare class LockingModule extends BaseModule {
      * @param positionId - The position ID.
      * @returns `true` if the position can be fully withdrawn.
      */
-    isPositionUnlocked(user: AccountAddressInput, positionId: bigint): Promise<boolean>;
+    isPositionUnlocked(user: AccountAddressInput, positionId: number): Promise<boolean>;
     /**
      * Get the total locked value across all of a user's positions.
      *
@@ -629,7 +629,7 @@ declare class LockingModule extends BaseModule {
      * @param user - The user's account address.
      * @returns The total locked value in the underlying token.
      */
-    getUserTotalLockedValue(user: AccountAddressInput): Promise<bigint>;
+    getUserTotalLockedValue(user: AccountAddressInput): Promise<number>;
     /**
      * Get the configuration for a specific tier.
      *
@@ -648,7 +648,7 @@ declare class LockingModule extends BaseModule {
      * @param positionId - The position ID.
      * @returns A {@link EmergencyUnlockPreview} with the expected payout and forfeited amount.
      */
-    getEmergencyUnlockPreview(user: AccountAddressInput, positionId: bigint): Promise<EmergencyUnlockPreview>;
+    getEmergencyUnlockPreview(user: AccountAddressInput, positionId: number): Promise<EmergencyUnlockPreview>;
 }
 
 /**
@@ -683,37 +683,37 @@ interface UserGuaranteedPositions {
  * Parsed return type for `get_protocol_stats() -> (total_locked, total_aet, total_cashback, total_yield_to_treasury)`.
  */
 interface ProtocolStats {
-    totalLockedPrincipal: bigint;
-    totalAetHeld: bigint;
-    totalCashbackPaid: bigint;
-    totalYieldToTreasury: bigint;
+    totalLockedPrincipal: number;
+    totalAetHeld: number;
+    totalCashbackPaid: number;
+    totalYieldToTreasury: number;
 }
 /** Parsed return type for `get_tier_config(tier) -> (duration, yield_bps)`. */
 interface GuaranteedTierConfig {
     /** Lock duration in seconds. */
-    durationSeconds: bigint;
+    durationSeconds: number;
     /** Guaranteed yield in basis points. */
-    yieldBps: bigint;
+    yieldBps: number;
 }
 /**
  * Parsed return type for `get_emergency_unlock_preview(user, position_id) -> (payout, yield_forfeited, cashback_clawback)`.
  */
 interface GuaranteedEmergencyUnlockPreview {
     /** Amount the user receives. */
-    payout: bigint;
+    payout: number;
     /** Amount of yield forfeited. */
-    yieldForfeited: bigint;
+    yieldForfeited: number;
     /** Cashback amount clawed back. */
-    cashbackClawback: bigint;
+    cashbackClawback: number;
 }
 /** Arguments for `GuaranteedYieldLocking::deposit_guaranteed`. */
 interface DepositGuaranteedArgs {
     /** Amount of underlying tokens to deposit. */
-    amount: bigint;
+    amount: number;
     /** Lock tier (1=Starter, 2=Bronze, 3=Silver, 4=Gold). Use {@link GuaranteedYieldTier} enum. */
     tier: number;
     /** Minimum AET tokens to receive (slippage protection). */
-    minAetReceived: bigint;
+    minAetReceived: number;
 }
 /**
  * Arguments for `GuaranteedYieldLocking::request_unlock_guaranteed`.
@@ -724,7 +724,7 @@ interface DepositGuaranteedArgs {
  */
 interface RequestUnlockGuaranteedArgs {
     /** ID of the position to request unlock for. */
-    positionId: bigint;
+    positionId: number;
 }
 /**
  * Arguments for `GuaranteedYieldLocking::withdraw_guaranteed`.
@@ -734,12 +734,12 @@ interface RequestUnlockGuaranteedArgs {
  */
 interface WithdrawGuaranteedArgs {
     /** ID of the position to withdraw. */
-    positionId: bigint;
+    positionId: number;
 }
 /** Arguments for `GuaranteedYieldLocking::fund_cashback_vault`. */
 interface FundCashbackVaultArgs {
     /** Amount to fund the cashback vault with. */
-    amount: bigint;
+    amount: number;
 }
 /**
  * Arguments for `GuaranteedYieldLocking::request_emergency_unlock_guaranteed`.
@@ -750,7 +750,7 @@ interface FundCashbackVaultArgs {
  */
 interface RequestEmergencyUnlockGuaranteedArgs {
     /** ID of the position to emergency unlock. */
-    positionId: bigint;
+    positionId: number;
 }
 /**
  * Arguments for `GuaranteedYieldLocking::withdraw_emergency_guaranteed`.
@@ -760,14 +760,14 @@ interface RequestEmergencyUnlockGuaranteedArgs {
  */
 interface WithdrawEmergencyGuaranteedArgs {
     /** ID of the position to complete emergency withdrawal for. */
-    positionId: bigint;
+    positionId: number;
 }
 /** Arguments for `GuaranteedYieldLocking::set_tier_yield` (admin only). */
 interface SetTierYieldArgs {
     /** Tier to update. */
     tier: number;
     /** New yield in basis points. */
-    newYieldBps: bigint;
+    newYieldBps: number;
 }
 /** Arguments for `GuaranteedYieldLocking::set_treasury` (admin only). */
 interface SetTreasuryArgs {
@@ -782,7 +782,7 @@ interface SetDepositsEnabledArgs {
 /** Arguments for `GuaranteedYieldLocking::admin_withdraw_cashback_vault` (admin only). */
 interface AdminWithdrawCashbackVaultArgs {
     /** Amount to withdraw from the cashback vault. */
-    amount: bigint;
+    amount: number;
 }
 /** Arguments for `GuaranteedYieldLocking::propose_admin` (admin only). */
 interface ProposeAdminArgs {
@@ -792,12 +792,12 @@ interface ProposeAdminArgs {
 /** Arguments for `GuaranteedYieldLocking::set_max_total_locked` (admin only). */
 interface SetMaxTotalLockedArgs {
     /** New maximum total locked principal. */
-    newMax: bigint;
+    newMax: number;
 }
 /** Arguments for `GuaranteedYieldLocking::set_min_deposit` (admin only). */
 interface SetMinDepositArgs {
     /** New minimum deposit amount. */
-    newMin: bigint;
+    newMin: number;
 }
 
 /**
@@ -806,9 +806,9 @@ interface SetMinDepositArgs {
  * @example
  * ```typescript
  * const txn = await client.guaranteedYield.builder.depositGuaranteed(sender, {
- *   amount: 100_000_000n,
+ *   amount: 100_000_000,
  *   tier: GuaranteedYieldTier.Gold,
- *   minAetReceived: 0n,
+ *   minAetReceived: 0,
  * });
  * ```
  */
@@ -1013,13 +1013,13 @@ declare class GuaranteedYieldResources extends BaseModule {
  * ```typescript
  * // Deposit with guaranteed yield
  * const txn = await client.guaranteedYield.builder.depositGuaranteed(sender, {
- *   amount: 100_000_000n,
+ *   amount: 100_000_000,
  *   tier: GuaranteedYieldTier.Silver,
- *   minAetReceived: 0n,
+ *   minAetReceived: 0,
  * });
  *
  * // Check cashback for a given amount and tier
- * const cashback = await client.guaranteedYield.calculateCashback(100_000_000n, 3);
+ * const cashback = await client.guaranteedYield.calculateCashback(100_000_000, 3);
  *
  * // Get protocol-wide stats
  * const stats = await client.guaranteedYield.getProtocolStats();
@@ -1049,7 +1049,7 @@ declare class GuaranteedYieldModule extends BaseModule {
      * @param positionId - The position ID.
      * @returns The {@link GuaranteedLockPosition} struct.
      */
-    getGuaranteedPosition(user: AccountAddressInput, positionId: bigint): Promise<GuaranteedLockPosition>;
+    getGuaranteedPosition(user: AccountAddressInput, positionId: number): Promise<GuaranteedLockPosition>;
     /**
      * Get the guaranteed yield rate (in BPS) for a tier.
      *
@@ -1058,7 +1058,7 @@ declare class GuaranteedYieldModule extends BaseModule {
      * @param tier - The tier number (1=Starter, 2=Bronze, 3=Silver, 4=Gold).
      * @returns The yield in basis points (e.g. 500 = 5%).
      */
-    getTierGuaranteedYield(tier: number): Promise<bigint>;
+    getTierGuaranteedYield(tier: number): Promise<number>;
     /**
      * Get the lock duration (in seconds) for a tier.
      *
@@ -1067,7 +1067,7 @@ declare class GuaranteedYieldModule extends BaseModule {
      * @param tier - The tier number (1=Starter, 2=Bronze, 3=Silver, 4=Gold).
      * @returns The lock duration in seconds.
      */
-    getTierDuration(tier: number): Promise<bigint>;
+    getTierDuration(tier: number): Promise<number>;
     /**
      * Calculate the cashback amount for a given deposit amount and tier.
      *
@@ -1077,7 +1077,7 @@ declare class GuaranteedYieldModule extends BaseModule {
      * @param tier - The tier number.
      * @returns The cashback amount in the underlying token.
      */
-    calculateCashback(amount: bigint, tier: number): Promise<bigint>;
+    calculateCashback(amount: number, tier: number): Promise<number>;
     /**
      * Get the current balance of the cashback vault.
      *
@@ -1085,7 +1085,7 @@ declare class GuaranteedYieldModule extends BaseModule {
      *
      * @returns The vault balance in the underlying token.
      */
-    getCashbackVaultBalance(): Promise<bigint>;
+    getCashbackVaultBalance(): Promise<number>;
     /**
      * Get protocol-wide statistics.
      *
@@ -1104,7 +1104,7 @@ declare class GuaranteedYieldModule extends BaseModule {
      * @param positionId - The position ID.
      * @returns `true` if the position can be unlocked.
      */
-    isPositionUnlockable(user: AccountAddressInput, positionId: bigint): Promise<boolean>;
+    isPositionUnlockable(user: AccountAddressInput, positionId: number): Promise<boolean>;
     /**
      * Get the configuration for a specific tier.
      *
@@ -1140,7 +1140,7 @@ declare class GuaranteedYieldModule extends BaseModule {
      * @returns A {@link GuaranteedEmergencyUnlockPreview} with the expected payout,
      *   yield forfeited, and cashback clawback amounts.
      */
-    getEmergencyUnlockPreview(user: AccountAddressInput, positionId: bigint): Promise<GuaranteedEmergencyUnlockPreview>;
+    getEmergencyUnlockPreview(user: AccountAddressInput, positionId: number): Promise<GuaranteedEmergencyUnlockPreview>;
     /**
      * Get the maximum total locked principal allowed across all positions.
      *
@@ -1148,7 +1148,7 @@ declare class GuaranteedYieldModule extends BaseModule {
      *
      * @returns The maximum total locked principal.
      */
-    getMaxTotalLocked(): Promise<bigint>;
+    getMaxTotalLocked(): Promise<number>;
     /**
      * Get the minimum deposit amount for new positions.
      *
@@ -1156,7 +1156,7 @@ declare class GuaranteedYieldModule extends BaseModule {
      *
      * @returns The minimum deposit amount.
      */
-    getMinDeposit(): Promise<bigint>;
+    getMinDeposit(): Promise<number>;
 }
 
 /** On-chain resource `moneyfi_mock::vault::MockVaultState`. */
@@ -1176,22 +1176,22 @@ interface DepositorState {
 }
 /** Parsed return type for `vault::get_depositor_state(depositor) -> (deposited, pending_withdrawal)`. */
 interface DepositorStateView {
-    deposited: bigint;
-    pendingWithdrawal: bigint;
+    deposited: number;
+    pendingWithdrawal: number;
 }
 /** Arguments for `vault::deposit`. */
 interface MockVaultDepositArgs {
     /** Address of the fungible asset metadata object. */
     token: string;
     /** Amount to deposit. */
-    amount: bigint;
+    amount: number;
 }
 /** Arguments for `vault::request_withdraw`. */
 interface MockVaultRequestWithdrawArgs {
     /** Address of the fungible asset metadata object. */
     token: string;
     /** Amount to request for withdrawal. */
-    amount: bigint;
+    amount: number;
 }
 /** Arguments for `vault::withdraw_requested_amount`. */
 interface MockVaultWithdrawRequestedArgs {
@@ -1201,22 +1201,22 @@ interface MockVaultWithdrawRequestedArgs {
 /** Arguments for `vault::set_yield_multiplier` (admin only). */
 interface SetYieldMultiplierArgs {
     /** New yield multiplier in basis points. */
-    multiplierBps: bigint;
+    multiplierBps: number;
 }
 /** Arguments for `vault::simulate_yield` (admin only). */
 interface SimulateYieldArgs {
     /** Yield to simulate in basis points. */
-    yieldBps: bigint;
+    yieldBps: number;
 }
 /** Arguments for `vault::simulate_loss` (admin only). */
 interface SimulateLossArgs {
     /** Loss to simulate in basis points. */
-    lossBps: bigint;
+    lossBps: number;
 }
 /** Arguments for `vault::set_total_deposits` (admin only). */
 interface SetTotalDepositsArgs {
     /** New total deposits value. */
-    amount: bigint;
+    amount: number;
 }
 
 /**
@@ -1229,7 +1229,7 @@ interface SetTotalDepositsArgs {
  * ```typescript
  * const txn = await client.mockVault.builder.deposit(sender, {
  *   token: tokenMetadataAddress,
- *   amount: 1_000_000_00n,
+ *   amount: 1_000_000_00,
  * });
  * ```
  */
@@ -1382,7 +1382,7 @@ declare class MockVaultModule extends BaseModule {
      * @param token - The fungible asset metadata object address.
      * @returns The estimated total fund value.
      */
-    estimateTotalFundValue(depositor: AccountAddressInput, token: string): Promise<bigint>;
+    estimateTotalFundValue(depositor: AccountAddressInput, token: string): Promise<number>;
     /**
      * Get the vault's resource account address.
      *
@@ -1398,7 +1398,7 @@ declare class MockVaultModule extends BaseModule {
      *
      * @returns The yield multiplier BPS value.
      */
-    getYieldMultiplier(): Promise<bigint>;
+    getYieldMultiplier(): Promise<number>;
     /**
      * Get the total deposits held in the vault.
      *
@@ -1406,7 +1406,7 @@ declare class MockVaultModule extends BaseModule {
      *
      * @returns The total deposits amount.
      */
-    getTotalDeposits(): Promise<bigint>;
+    getTotalDeposits(): Promise<number>;
     /**
      * Get the total pending withdrawals in the vault.
      *
@@ -1414,7 +1414,7 @@ declare class MockVaultModule extends BaseModule {
      *
      * @returns The total pending withdrawal amount.
      */
-    getPendingWithdrawals(): Promise<bigint>;
+    getPendingWithdrawals(): Promise<number>;
     /**
      * Get the state of a specific depositor.
      *
@@ -1452,7 +1452,7 @@ interface PanoraSwapParams {
     /** Address that receives the output tokens from the swap. */
     toWalletAddress: string;
     /** Panora router arg3 (u64). */
-    arg3: bigint;
+    arg3: number;
     /** Panora router arg4 (u8). */
     arg4: number;
     /** Panora router arg5 (vector<u8>). */
@@ -1460,7 +1460,7 @@ interface PanoraSwapParams {
     /** Panora router arg6 (vector<vector<vector<u8>>>). */
     arg6: number[][][];
     /** Panora router arg7 (vector<vector<vector<u64>>>). */
-    arg7: bigint[][][];
+    arg7: number[][][];
     /** Panora router arg8 (vector<vector<vector<bool>>>). */
     arg8: boolean[][][];
     /**
@@ -1489,7 +1489,7 @@ interface PanoraSwapParams {
      */
     arg13: number[][][][][] | null;
     /** Panora router arg14 (vector<vector<vector<u64>>>). */
-    arg14: bigint[][][];
+    arg14: number[][][];
     /**
      * Panora router arg15. Optional nested bytes.
      * On-chain type: `0x1::option::Option<vector<vector<vector<u8>>>>`.
@@ -1504,11 +1504,11 @@ interface PanoraSwapParams {
      *
      * On-chain type: `vector<u64>`.
      */
-    fromTokenAmounts: bigint[];
+    fromTokenAmounts: number[];
     /** Panora router arg18 (u64). */
-    arg18: bigint;
+    arg18: number;
     /** Panora router arg19 (u64). */
-    arg19: bigint;
+    arg19: number;
     /** Panora router arg20 (address). */
     arg20: string;
 }
@@ -1522,9 +1522,9 @@ interface GladeFlexibleDepositArgs {
     /** Panora swap routing parameters. */
     swapParams: PanoraSwapParams;
     /** Amount of underlying tokens to deposit into the bridge after the swap. */
-    depositAmount: bigint;
+    depositAmount: number;
     /** Bridge provider identifier (e.g. 0 for MoneyFi). */
-    provider: bigint;
+    provider: number;
 }
 /**
  * Arguments for `glade_flexible::withdraw`.
@@ -1536,9 +1536,9 @@ interface GladeFlexibleWithdrawArgs {
     /** Panora swap routing parameters. */
     swapParams: PanoraSwapParams;
     /** Amount of underlying tokens to withdraw from the bridge before the swap. */
-    withdrawalAmount: bigint;
+    withdrawalAmount: number;
     /** Bridge provider identifier. */
-    provider: bigint;
+    provider: number;
 }
 /**
  * Arguments for `glade_guaranteed::deposit_guaranteed`.
@@ -1549,11 +1549,11 @@ interface GladeGuaranteedDepositArgs {
     /** Panora swap routing parameters. */
     swapParams: PanoraSwapParams;
     /** Amount of underlying tokens to deposit after the swap. */
-    depositAmount: bigint;
+    depositAmount: number;
     /** Lock tier (1=Starter, 2=Bronze, 3=Silver, 4=Gold). */
     tier: number;
     /** Minimum AET tokens to receive (slippage protection). */
-    minAetReceived: bigint;
+    minAetReceived: number;
 }
 /**
  * Arguments for `glade_guaranteed::unlock_guaranteed`.
@@ -1568,7 +1568,7 @@ interface GladeGuaranteedUnlockArgs {
     /** Panora swap routing parameters. */
     swapParams: PanoraSwapParams;
     /** ID of the position to complete withdrawal for. */
-    positionId: bigint;
+    positionId: number;
 }
 /**
  * Arguments for `glade_guaranteed::emergency_unlock_guaranteed`.
@@ -1583,7 +1583,7 @@ interface GladeGuaranteedEmergencyUnlockArgs {
     /** Panora swap routing parameters. */
     swapParams: PanoraSwapParams;
     /** ID of the position to complete emergency withdrawal for. */
-    positionId: bigint;
+    positionId: number;
 }
 /**
  * Arguments for `swap_helpers::swap`.
@@ -1619,8 +1619,8 @@ interface SwapArgs {
  *   senderAddress,
  *   {
  *     swapParams: { ... },
- *     depositAmount: 100_000_000n,
- *     provider: 0n,
+ *     depositAmount: 100_000_000,
+ *     provider: 0,
  *   },
  *   typeArgs,
  * );
@@ -1736,7 +1736,7 @@ declare class GladeBuilder extends BaseModule {
  *   swapParams: {
  *     optionalSigner: null,
  *     toWalletAddress: senderAddress,
- *     arg3: 0n,
+ *     arg3: 0,
  *     arg4: 0,
  *     arg5: new Uint8Array(),
  *     arg6: [],
@@ -1750,13 +1750,13 @@ declare class GladeBuilder extends BaseModule {
  *     arg14: [],
  *     arg15: null,
  *     arg16: "0x0",
- *     fromTokenAmounts: [100_000_000n],
- *     arg18: 0n,
- *     arg19: 0n,
+ *     fromTokenAmounts: [100_000_000],
+ *     arg18: 0,
+ *     arg19: 0,
  *     arg20: "0x0",
  *   },
- *   depositAmount: 100_000_000n,
- *   provider: 0n,
+ *   depositAmount: 100_000_000,
+ *   provider: 0,
  * }, typeArgs);
  *
  * // Standalone swap
@@ -1803,8 +1803,8 @@ declare class GladeModule extends BaseModule {
  *
  * // Build a deposit transaction
  * const txn = await client.bridge.builder.deposit(senderAddress, {
- *   amount: 1_00000000n, // 1 token (8 decimals)
- *   provider: 0n,
+ *   amount: 1_00000000, // 1 token (8 decimals)
+ *   provider: 0,
  * });
  *
  * // Query LP price
@@ -1863,11 +1863,11 @@ declare enum GuaranteedYieldTier {
 }
 
 /** Basis points denominator (10_000 = 100%). */
-declare const BPS_DENOMINATOR = 10000n;
+declare const BPS_DENOMINATOR = 10000;
 /** AET share price scaling factor (1e9). */
-declare const AET_SCALE = 1000000000n;
+declare const AET_SCALE = 1000000000;
 /** Precision factor used in locking calculations (1e12). */
-declare const PRECISION = 1000000000000n;
+declare const PRECISION = 1000000000000;
 /** Resource account seeds used by the on-chain contracts. */
 declare const SEEDS: {
     readonly BRIDGE: "APTreeEarn";
@@ -1881,22 +1881,22 @@ declare const SEEDS: {
 /** Locking tier durations in seconds. */
 declare const LOCKING_DURATIONS: {
     /** 90 days */
-    readonly BRONZE: 7776000n;
+    readonly BRONZE: 7776000;
     /** 180 days */
-    readonly SILVER: 15552000n;
+    readonly SILVER: 15552000;
     /** 365 days */
-    readonly GOLD: 31536000n;
+    readonly GOLD: 31536000;
 };
 /** Guaranteed yield tier durations in seconds. */
 declare const GUARANTEED_YIELD_DURATIONS: {
     /** 30 days */
-    readonly STARTER: 2592000n;
+    readonly STARTER: 2592000;
     /** 90 days */
-    readonly BRONZE: 7776000n;
+    readonly BRONZE: 7776000;
     /** 180 days */
-    readonly SILVER: 15552000n;
+    readonly SILVER: 15552000;
     /** 365 days */
-    readonly GOLD: 31536000n;
+    readonly GOLD: 31536000;
 };
 
 export { AET_SCALE, type AddToPositionArgs, type AdminWithdrawCashbackVaultArgs, type AptreeAddresses, AptreeClient, type AptreeClientConfig, BPS_DENOMINATOR, BridgeBuilder, type BridgeDepositArgs, BridgeModule, type BridgeRequestArgs, BridgeResources, type BridgeState, type BridgeWithdrawArgs, type BridgeWithdrawalTokenState, type DepositGuaranteedArgs, type DepositLockedArgs, type DepositorState, type DepositorStateView, type EmergencyUnlockArgs, type EmergencyUnlockPreview, type FundCashbackVaultArgs, GUARANTEED_YIELD_DURATIONS, GladeBuilder, type GladeFlexibleDepositArgs, type GladeFlexibleWithdrawArgs, type GladeGuaranteedDepositArgs, type GladeGuaranteedEmergencyUnlockArgs, type GladeGuaranteedUnlockArgs, GladeModule, type GuaranteedEmergencyUnlockPreview, type GuaranteedLockPosition, type GuaranteedTierConfig, GuaranteedYieldBuilder, GuaranteedYieldModule, GuaranteedYieldResources, GuaranteedYieldTier, LOCKING_DURATIONS, type LockConfig, type LockPosition, LockingBuilder, LockingModule, LockingResources, LockingTier, MockVaultBuilder, type MockVaultDepositArgs, MockVaultModule, type MockVaultRequestWithdrawArgs, MockVaultResources, type MockVaultState, type MockVaultWithdrawRequestedArgs, type MoneyFiAdapterDepositArgs, type MoneyFiAdapterRequestArgs, type MoneyFiAdapterWithdrawArgs, type MoneyFiBridgeState, type MoneyFiReserveState, PRECISION, type PanoraSwapParams, type ProposeAdminArgs, type ProtocolStats, type RequestEmergencyUnlockGuaranteedArgs, type RequestUnlockGuaranteedArgs, SEEDS, type SetDepositsEnabledArgs, type SetLocksEnabledArgs, type SetMaxTotalLockedArgs, type SetMinDepositArgs, type SetTierLimitArgs, type SetTierYieldArgs, type SetTotalDepositsArgs, type SetTreasuryArgs, type SetYieldMultiplierArgs, type SimulateLossArgs, type SimulateYieldArgs, type SwapArgs, TESTNET_ADDRESSES, type TierConfig, type UserGuaranteedPositions, type UserLockPositions, type WithdrawEarlyArgs, type WithdrawEmergencyGuaranteedArgs, type WithdrawGuaranteedArgs, type WithdrawUnlockedArgs };

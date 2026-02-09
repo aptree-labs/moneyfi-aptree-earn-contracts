@@ -23,11 +23,11 @@ import type {
  * const positions = await client.locking.getUserPositions("0xabc...");
  *
  * // Check if a position is unlocked
- * const unlocked = await client.locking.isPositionUnlocked("0xabc...", 0n);
+ * const unlocked = await client.locking.isPositionUnlocked("0xabc...", 0);
  *
  * // Build a deposit transaction
  * const txn = await client.locking.builder.depositLocked(sender, {
- *   amount: 100_000_000n,
+ *   amount: 100_000_000,
  *   tier: LockingTier.Gold,
  * });
  * ```
@@ -75,7 +75,7 @@ export class LockingModule extends BaseModule {
    */
   async getPosition(
     user: AccountAddressInput,
-    positionId: bigint,
+    positionId: number,
   ): Promise<LockPosition> {
     const [result] = await this.view<[LockPosition]>(
       `${this.addresses.aptree}::locking::get_position`,
@@ -98,13 +98,13 @@ export class LockingModule extends BaseModule {
    */
   async getEarlyWithdrawalAvailable(
     user: AccountAddressInput,
-    positionId: bigint,
-  ): Promise<bigint> {
+    positionId: number,
+  ): Promise<number> {
     const [result] = await this.view<[string]>(
       `${this.addresses.aptree}::locking::get_early_withdrawal_available`,
       [user, positionId],
     );
-    return BigInt(result);
+    return Number(result);
   }
 
   /**
@@ -118,7 +118,7 @@ export class LockingModule extends BaseModule {
    */
   async isPositionUnlocked(
     user: AccountAddressInput,
-    positionId: bigint,
+    positionId: number,
   ): Promise<boolean> {
     const [result] = await this.view<[boolean]>(
       `${this.addresses.aptree}::locking::is_position_unlocked`,
@@ -137,12 +137,12 @@ export class LockingModule extends BaseModule {
    */
   async getUserTotalLockedValue(
     user: AccountAddressInput,
-  ): Promise<bigint> {
+  ): Promise<number> {
     const [result] = await this.view<[string]>(
       `${this.addresses.aptree}::locking::get_user_total_locked_value`,
       [user],
     );
-    return BigInt(result);
+    return Number(result);
   }
 
   /**
@@ -159,8 +159,8 @@ export class LockingModule extends BaseModule {
       [tier],
     );
     return {
-      durationSeconds: BigInt(durationSeconds),
-      earlyLimitBps: BigInt(earlyLimitBps),
+      durationSeconds: Number(durationSeconds),
+      earlyLimitBps: Number(earlyLimitBps),
     };
   }
 
@@ -175,15 +175,15 @@ export class LockingModule extends BaseModule {
    */
   async getEmergencyUnlockPreview(
     user: AccountAddressInput,
-    positionId: bigint,
+    positionId: number,
   ): Promise<EmergencyUnlockPreview> {
     const [payout, forfeited] = await this.view<[string, string]>(
       `${this.addresses.aptree}::locking::get_emergency_unlock_preview`,
       [user, positionId],
     );
     return {
-      payout: BigInt(payout),
-      forfeited: BigInt(forfeited),
+      payout: Number(payout),
+      forfeited: Number(forfeited),
     };
   }
 }

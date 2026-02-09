@@ -44,17 +44,17 @@ export interface LockConfig {
 /** Parsed return type for `locking::get_tier_config(tier) -> (duration, early_limit_bps)`. */
 export interface TierConfig {
   /** Lock duration in seconds. */
-  durationSeconds: bigint;
+  durationSeconds: number;
   /** Early withdrawal limit in basis points. */
-  earlyLimitBps: bigint;
+  earlyLimitBps: number;
 }
 
 /** Parsed return type for `locking::get_emergency_unlock_preview(user, position_id) -> (payout, forfeited)`. */
 export interface EmergencyUnlockPreview {
   /** Amount the user receives. */
-  payout: bigint;
+  payout: number;
   /** Amount forfeited by the user. */
-  forfeited: bigint;
+  forfeited: number;
 }
 
 // ─── Builder Arg Types ───────────────────────────────────────────────────────
@@ -62,7 +62,7 @@ export interface EmergencyUnlockPreview {
 /** Arguments for `locking::deposit_locked`. */
 export interface DepositLockedArgs {
   /** Amount of underlying tokens to lock. */
-  amount: bigint;
+  amount: number;
   /** Lock tier (1=Bronze, 2=Silver, 3=Gold). Use {@link LockingTier} enum. */
   tier: number;
 }
@@ -70,29 +70,29 @@ export interface DepositLockedArgs {
 /** Arguments for `locking::add_to_position`. */
 export interface AddToPositionArgs {
   /** ID of the existing position to add to. */
-  positionId: bigint;
+  positionId: number;
   /** Additional amount to lock. */
-  amount: bigint;
+  amount: number;
 }
 
 /** Arguments for `locking::withdraw_early`. */
 export interface WithdrawEarlyArgs {
   /** ID of the position to withdraw from. */
-  positionId: bigint;
+  positionId: number;
   /** Amount to withdraw early. */
-  amount: bigint;
+  amount: number;
 }
 
 /** Arguments for `locking::withdraw_unlocked`. */
 export interface WithdrawUnlockedArgs {
   /** ID of the unlocked position to withdraw. */
-  positionId: bigint;
+  positionId: number;
 }
 
 /** Arguments for `locking::emergency_unlock`. */
 export interface EmergencyUnlockArgs {
   /** ID of the position to emergency unlock. */
-  positionId: bigint;
+  positionId: number;
 }
 
 /** Arguments for `locking::set_tier_limit` (admin only). */
@@ -100,7 +100,7 @@ export interface SetTierLimitArgs {
   /** Tier to update (1=Bronze, 2=Silver, 3=Gold). */
   tier: number;
   /** New early withdrawal limit in basis points. */
-  newLimitBps: bigint;
+  newLimitBps: number;
 }
 
 /** Arguments for `locking::set_locks_enabled` (admin only). */

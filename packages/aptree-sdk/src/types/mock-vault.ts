@@ -19,8 +19,8 @@ export interface DepositorState {
 
 /** Parsed return type for `vault::get_depositor_state(depositor) -> (deposited, pending_withdrawal)`. */
 export interface DepositorStateView {
-  deposited: bigint;
-  pendingWithdrawal: bigint;
+  deposited: number;
+  pendingWithdrawal: number;
 }
 
 // ─── Builder Arg Types ───────────────────────────────────────────────────────
@@ -30,7 +30,7 @@ export interface MockVaultDepositArgs {
   /** Address of the fungible asset metadata object. */
   token: string;
   /** Amount to deposit. */
-  amount: bigint;
+  amount: number;
 }
 
 /** Arguments for `vault::request_withdraw`. */
@@ -38,7 +38,7 @@ export interface MockVaultRequestWithdrawArgs {
   /** Address of the fungible asset metadata object. */
   token: string;
   /** Amount to request for withdrawal. */
-  amount: bigint;
+  amount: number;
 }
 
 /** Arguments for `vault::withdraw_requested_amount`. */
@@ -50,23 +50,23 @@ export interface MockVaultWithdrawRequestedArgs {
 /** Arguments for `vault::set_yield_multiplier` (admin only). */
 export interface SetYieldMultiplierArgs {
   /** New yield multiplier in basis points. */
-  multiplierBps: bigint;
+  multiplierBps: number;
 }
 
 /** Arguments for `vault::simulate_yield` (admin only). */
 export interface SimulateYieldArgs {
   /** Yield to simulate in basis points. */
-  yieldBps: bigint;
+  yieldBps: number;
 }
 
 /** Arguments for `vault::simulate_loss` (admin only). */
 export interface SimulateLossArgs {
   /** Loss to simulate in basis points. */
-  lossBps: bigint;
+  lossBps: number;
 }
 
 /** Arguments for `vault::set_total_deposits` (admin only). */
 export interface SetTotalDepositsArgs {
   /** New total deposits value. */
-  amount: bigint;
+  amount: number;
 }

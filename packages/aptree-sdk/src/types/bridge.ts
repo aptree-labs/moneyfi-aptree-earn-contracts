@@ -34,43 +34,43 @@ export interface BridgeWithdrawalTokenState {
 /** Arguments for `bridge::deposit`. */
 export interface BridgeDepositArgs {
   /** The amount of the underlying token to deposit. */
-  amount: bigint;
+  amount: number;
   /** The provider identifier (e.g. 0 for MoneyFi). */
-  provider: bigint;
+  provider: number;
 }
 
 /** Arguments for `bridge::request`. */
 export interface BridgeRequestArgs {
   /** The amount of share tokens (AET) to request withdrawal for. */
-  amount: bigint;
+  amount: number;
   /** Minimum acceptable share price (u128) as slippage protection. */
-  minAmount: bigint;
+  minAmount: number;
 }
 
 /** Arguments for `bridge::withdraw`. */
 export interface BridgeWithdrawArgs {
   /** The amount of underlying tokens to withdraw. */
-  amount: bigint;
+  amount: number;
   /** The provider identifier. */
-  provider: bigint;
+  provider: number;
 }
 
 /** Arguments for `moneyfi_adapter::deposit`. */
 export interface MoneyFiAdapterDepositArgs {
   /** The amount of the underlying token to deposit. */
-  amount: bigint;
+  amount: number;
 }
 
 /** Arguments for `moneyfi_adapter::request`. */
 export interface MoneyFiAdapterRequestArgs {
   /** The amount of AET share tokens to burn for withdrawal. */
-  amount: bigint;
+  amount: number;
   /** Minimum share price (u128) for slippage protection. */
-  minSharePrice: bigint;
+  minSharePrice: number;
 }
 
 /** Arguments for `moneyfi_adapter::withdraw`. */
 export interface MoneyFiAdapterWithdrawArgs {
   /** The amount of underlying tokens to withdraw. */
-  amount: bigint;
+  amount: number;
 }

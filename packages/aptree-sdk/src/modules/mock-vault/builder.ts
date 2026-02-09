@@ -20,7 +20,7 @@ import type {
  * ```typescript
  * const txn = await client.mockVault.builder.deposit(sender, {
  *   token: tokenMetadataAddress,
- *   amount: 1_000_000_00n,
+ *   amount: 1_000_000_00,
  * });
  * ```
  */

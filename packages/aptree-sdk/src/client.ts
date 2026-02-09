@@ -31,8 +31,8 @@ import { GladeModule } from "./modules/glade";
  *
  * // Build a deposit transaction
  * const txn = await client.bridge.builder.deposit(senderAddress, {
- *   amount: 1_00000000n, // 1 token (8 decimals)
- *   provider: 0n,
+ *   amount: 1_00000000, // 1 token (8 decimals)
+ *   provider: 0,
  * });
  *
  * // Query LP price

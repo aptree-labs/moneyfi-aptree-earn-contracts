@@ -67,8 +67,8 @@ function swapParamsToArgs(p: PanoraSwapParams): Array<unknown> {
  *   senderAddress,
  *   {
  *     swapParams: { ... },
- *     depositAmount: 100_000_000n,
- *     provider: 0n,
+ *     depositAmount: 100_000_000,
+ *     provider: 0,
  *   },
  *   typeArgs,
  * );
@@ -102,7 +102,7 @@ export class GladeBuilder extends BaseModule {
     return this.buildTransaction(
       sender,
       `${this.addresses.aptree}::glade_flexible::deposit`,
-      fnArgs as Array<string | number | bigint | boolean | Uint8Array>,
+      fnArgs as Array<string | number | boolean | Uint8Array>,
       typeArguments,
     );
   }
@@ -132,7 +132,7 @@ export class GladeBuilder extends BaseModule {
     return this.buildTransaction(
       sender,
       `${this.addresses.aptree}::glade_flexible::withdraw`,
-      fnArgs as Array<string | number | bigint | boolean | Uint8Array>,
+      fnArgs as Array<string | number | boolean | Uint8Array>,
       typeArguments,
     );
   }
@@ -165,7 +165,7 @@ export class GladeBuilder extends BaseModule {
     return this.buildTransaction(
       sender,
       `${this.addresses.aptree}::glade_guaranteed::deposit_guaranteed`,
-      fnArgs as Array<string | number | bigint | boolean | Uint8Array>,
+      fnArgs as Array<string | number | boolean | Uint8Array>,
       typeArguments,
     );
   }
@@ -198,7 +198,7 @@ export class GladeBuilder extends BaseModule {
     return this.buildTransaction(
       sender,
       `${this.addresses.aptree}::glade_guaranteed::unlock_guaranteed`,
-      fnArgs as Array<string | number | bigint | boolean | Uint8Array>,
+      fnArgs as Array<string | number | boolean | Uint8Array>,
       typeArguments,
     );
   }
@@ -232,7 +232,7 @@ export class GladeBuilder extends BaseModule {
     return this.buildTransaction(
       sender,
       `${this.addresses.aptree}::glade_guaranteed::emergency_unlock_guaranteed`,
-      fnArgs as Array<string | number | bigint | boolean | Uint8Array>,
+      fnArgs as Array<string | number | boolean | Uint8Array>,
       typeArguments,
     );
   }
@@ -259,7 +259,7 @@ export class GladeBuilder extends BaseModule {
     return this.buildTransaction(
       sender,
       `${this.addresses.aptree}::swap_helpers::swap`,
-      fnArgs as Array<string | number | bigint | boolean | Uint8Array>,
+      fnArgs as Array<string | number | boolean | Uint8Array>,
       typeArguments,
     );
   }

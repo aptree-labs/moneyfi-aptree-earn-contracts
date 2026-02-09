@@ -18,7 +18,7 @@ import type {
  * @example
  * ```typescript
  * const txn = await client.locking.builder.depositLocked(sender, {
- *   amount: 100_000_000n,
+ *   amount: 100_000_000,
  *   tier: LockingTier.Gold,
  * });
  * ```
