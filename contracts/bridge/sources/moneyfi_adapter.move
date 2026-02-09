@@ -12,7 +12,7 @@ module aptree::moneyfi_adapter {
     use aptos_framework::object::Object;
     use aptos_framework::primary_fungible_store;
     use aptos_framework::timestamp;
-    use moneyfi_mock::vault;
+    use moneyfi::vault;
     #[test_only]
     use aptos_std::debug;
 

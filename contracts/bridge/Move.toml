@@ -5,8 +5,8 @@ authors = []
 
 [addresses]
 aptree = "0x7609a1f4fffae8048bf48d7ba740fab64d7b30ec463512bb9b2fd45645b1326b"
-moneyfi_bridge_asset = "0x69091fbab5f7d635ee7ac5098cf0c1efbe31d68fec0f2cd565e8d168daf52832" # should be set to usdt on the network we're on 
-moneyfi = "0xd4b0e499b766905e4da6633aa10cef52e0ffb98054ef76a9a97ea80b486782ca" # only for testnet, should be set to real moneyfi on mainnet
+moneyfi_bridge_asset = "0x357b0b74bc833e95a115ad22604854d6b0fca151cecd94111770e5d6ffc9dc2b" # should be set to usdt on the network we're on 
+# moneyfi = "0xd4b0e499b766905e4da6633aa10cef52e0ffb98054ef76a9a97ea80b486782ca" # only for testnet, should be set to real moneyfi on mainnet
 [dev-addresses]
 
 [dependencies.AptosFramework]
@@ -15,11 +15,11 @@ rev = "mainnet"
 subdir = "aptos-framework"
 
 
-# [dependencies.moneyfi]
-# git = "https://github.com/MoneyFi-fund/moneyFi-smart-contract-integration.git"
-# rev = "main"
+[dependencies.moneyfi]
+git = "https://github.com/MoneyFi-fund/moneyFi-smart-contract-integration.git"
+rev = "main"
 
-[dependencies.MockMoneyFi]
-local = "../mock-moneyfi"
+# [dependencies.MockMoneyFi]
+# local = "../mock-moneyfi"
 
 [dev-dependencies]
