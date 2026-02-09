@@ -1,6 +1,6 @@
 {
   "name": "@aptree/sdk",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "TypeScript SDK for interacting with Aptree bridge smart contracts on Aptos",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
