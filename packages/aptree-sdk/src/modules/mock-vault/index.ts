@@ -52,12 +52,12 @@ export class MockVaultModule extends BaseModule {
   async estimateTotalFundValue(
     depositor: AccountAddressInput,
     token: string,
-  ): Promise<bigint> {
+  ): Promise<number> {
     const [result] = await this.view<[string]>(
       `${this.addresses.moneyfi}::vault::estimate_total_fund_value`,
       [depositor, token],
     );
-    return BigInt(result);
+    return Number(result);
   }
 
   /**
@@ -81,11 +81,11 @@ export class MockVaultModule extends BaseModule {
    *
    * @returns The yield multiplier BPS value.
    */
-  async getYieldMultiplier(): Promise<bigint> {
+  async getYieldMultiplier(): Promise<number> {
     const [result] = await this.view<[string]>(
       `${this.addresses.moneyfi}::vault::get_yield_multiplier`,
     );
-    return BigInt(result);
+    return Number(result);
   }
 
   /**
@@ -95,11 +95,11 @@ export class MockVaultModule extends BaseModule {
    *
    * @returns The total deposits amount.
    */
-  async getTotalDeposits(): Promise<bigint> {
+  async getTotalDeposits(): Promise<number> {
     const [result] = await this.view<[string]>(
       `${this.addresses.moneyfi}::vault::get_total_deposits`,
     );
-    return BigInt(result);
+    return Number(result);
   }
 
   /**
@@ -109,11 +109,11 @@ export class MockVaultModule extends BaseModule {
    *
    * @returns The total pending withdrawal amount.
    */
-  async getPendingWithdrawals(): Promise<bigint> {
+  async getPendingWithdrawals(): Promise<number> {
     const [result] = await this.view<[string]>(
       `${this.addresses.moneyfi}::vault::get_pending_withdrawals`,
     );
-    return BigInt(result);
+    return Number(result);
   }
 
   /**
@@ -132,8 +132,8 @@ export class MockVaultModule extends BaseModule {
       [depositor],
     );
     return {
-      deposited: BigInt(deposited),
-      pendingWithdrawal: BigInt(pendingWithdrawal),
+      deposited: Number(deposited),
+      pendingWithdrawal: Number(pendingWithdrawal),
     };
   }
 }

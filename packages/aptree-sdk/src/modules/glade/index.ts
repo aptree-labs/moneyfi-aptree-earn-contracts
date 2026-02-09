@@ -30,7 +30,7 @@ import { GladeBuilder } from "./builder";
  *   swapParams: {
  *     optionalSigner: null,
  *     toWalletAddress: senderAddress,
- *     arg3: 0n,
+ *     arg3: 0,
  *     arg4: 0,
  *     arg5: new Uint8Array(),
  *     arg6: [],
@@ -44,13 +44,13 @@ import { GladeBuilder } from "./builder";
  *     arg14: [],
  *     arg15: null,
  *     arg16: "0x0",
- *     fromTokenAmounts: [100_000_000n],
- *     arg18: 0n,
- *     arg19: 0n,
+ *     fromTokenAmounts: [100_000_000],
+ *     arg18: 0,
+ *     arg19: 0,
  *     arg20: "0x0",
  *   },
- *   depositAmount: 100_000_000n,
- *   provider: 0n,
+ *   depositAmount: 100_000_000,
+ *   provider: 0,
  * }, typeArgs);
  *
  * // Standalone swap

@@ -15,7 +15,7 @@ import { BridgeResources } from "./resources";
  * @example
  * ```typescript
  * // Build and submit a deposit transaction
- * const txn = await client.bridge.builder.deposit(sender, { amount: 1_00000000n, provider: 0n });
+ * const txn = await client.bridge.builder.deposit(sender, { amount: 1_00000000, provider: 0 });
  *
  * // Query the current LP price
  * const lpPrice = await client.bridge.getLpPrice();
@@ -57,15 +57,15 @@ export class BridgeModule extends BaseModule {
    *
    * Calls `moneyfi_adapter::get_lp_price`.
    *
-   * The price is scaled by AET_SCALE (1e9). A value of `1_000_000_000n` means 1:1.
+   * The price is scaled by AET_SCALE (1e9). A value of `1_000_000_000` means 1:1.
    *
-   * @returns The current share price as a bigint (u128).
+   * @returns The current share price as a number (u128).
    */
-  async getLpPrice(): Promise<bigint> {
+  async getLpPrice(): Promise<number> {
     const [result] = await this.view<[string]>(
       `${this.addresses.aptree}::moneyfi_adapter::get_lp_price`,
     );
-    return BigInt(result);
+    return Number(result);
   }
 
   /**
@@ -75,11 +75,11 @@ export class BridgeModule extends BaseModule {
    *
    * @returns The pool's estimated total value.
    */
-  async getPoolEstimatedValue(): Promise<bigint> {
+  async getPoolEstimatedValue(): Promise<number> {
     const [result] = await this.view<[string]>(
       `${this.addresses.aptree}::moneyfi_adapter::get_pool_estimated_value`,
     );
-    return BigInt(result);
+    return Number(result);
   }
 }
 

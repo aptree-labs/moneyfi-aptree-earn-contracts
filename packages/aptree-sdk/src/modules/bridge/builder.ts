@@ -18,8 +18,8 @@ import type {
  * @example
  * ```typescript
  * const txn = await client.bridge.builder.deposit(senderAddress, {
- *   amount: 100_000_000n,
- *   provider: 0n,
+ *   amount: 100_000_000,
+ *   provider: 0,
  * });
  * const signed = client.aptos.transaction.sign({ signer, transaction: txn });
  * const result = await client.aptos.transaction.submit.simple({ transaction: txn, senderAuthenticator: signed });

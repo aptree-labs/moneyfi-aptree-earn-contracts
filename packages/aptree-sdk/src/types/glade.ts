@@ -28,7 +28,7 @@ export interface PanoraSwapParams {
   toWalletAddress: string;
 
   /** Panora router arg3 (u64). */
-  arg3: bigint;
+  arg3: number;
 
   /** Panora router arg4 (u8). */
   arg4: number;
@@ -40,7 +40,7 @@ export interface PanoraSwapParams {
   arg6: number[][][];
 
   /** Panora router arg7 (vector<vector<vector<u64>>>). */
-  arg7: bigint[][][];
+  arg7: number[][][];
 
   /** Panora router arg8 (vector<vector<vector<bool>>>). */
   arg8: boolean[][][];
@@ -76,7 +76,7 @@ export interface PanoraSwapParams {
   arg13: number[][][][][] | null;
 
   /** Panora router arg14 (vector<vector<vector<u64>>>). */
-  arg14: bigint[][][];
+  arg14: number[][][];
 
   /**
    * Panora router arg15. Optional nested bytes.
@@ -94,13 +94,13 @@ export interface PanoraSwapParams {
    *
    * On-chain type: `vector<u64>`.
    */
-  fromTokenAmounts: bigint[];
+  fromTokenAmounts: number[];
 
   /** Panora router arg18 (u64). */
-  arg18: bigint;
+  arg18: number;
 
   /** Panora router arg19 (u64). */
-  arg19: bigint;
+  arg19: number;
 
   /** Panora router arg20 (address). */
   arg20: string;
@@ -118,9 +118,9 @@ export interface GladeFlexibleDepositArgs {
   /** Panora swap routing parameters. */
   swapParams: PanoraSwapParams;
   /** Amount of underlying tokens to deposit into the bridge after the swap. */
-  depositAmount: bigint;
+  depositAmount: number;
   /** Bridge provider identifier (e.g. 0 for MoneyFi). */
-  provider: bigint;
+  provider: number;
 }
 
 /**
@@ -133,9 +133,9 @@ export interface GladeFlexibleWithdrawArgs {
   /** Panora swap routing parameters. */
   swapParams: PanoraSwapParams;
   /** Amount of underlying tokens to withdraw from the bridge before the swap. */
-  withdrawalAmount: bigint;
+  withdrawalAmount: number;
   /** Bridge provider identifier. */
-  provider: bigint;
+  provider: number;
 }
 
 // ─── Glade Guaranteed Builder Arg Types ──────────────────────────────────────
@@ -149,11 +149,11 @@ export interface GladeGuaranteedDepositArgs {
   /** Panora swap routing parameters. */
   swapParams: PanoraSwapParams;
   /** Amount of underlying tokens to deposit after the swap. */
-  depositAmount: bigint;
+  depositAmount: number;
   /** Lock tier (1=Starter, 2=Bronze, 3=Silver, 4=Gold). */
   tier: number;
   /** Minimum AET tokens to receive (slippage protection). */
-  minAetReceived: bigint;
+  minAetReceived: number;
 }
 
 /**
@@ -169,7 +169,7 @@ export interface GladeGuaranteedUnlockArgs {
   /** Panora swap routing parameters. */
   swapParams: PanoraSwapParams;
   /** ID of the position to complete withdrawal for. */
-  positionId: bigint;
+  positionId: number;
 }
 
 /**
@@ -185,7 +185,7 @@ export interface GladeGuaranteedEmergencyUnlockArgs {
   /** Panora swap routing parameters. */
   swapParams: PanoraSwapParams;
   /** ID of the position to complete emergency withdrawal for. */
-  positionId: bigint;
+  positionId: number;
 }
 
 // ─── Swap Helpers Builder Arg Types ──────────────────────────────────────────
