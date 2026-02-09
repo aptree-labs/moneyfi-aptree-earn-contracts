@@ -1,4 +1,8 @@
-import { AccountAddressInput, SimpleTransaction } from "@aptos-labs/ts-sdk";
+import {
+  AccountAddressInput,
+  InputEntryFunctionData,
+  SimpleTransaction,
+} from "@aptos-labs/ts-sdk";
 import { BaseModule } from "../base-module";
 import type {
   DepositLockedArgs,
@@ -177,6 +181,64 @@ export class LockingBuilder extends BaseModule {
   ): Promise<SimpleTransaction> {
     return this.buildTransaction(
       sender,
+      `${this.addresses.aptree}::locking::set_locks_enabled`,
+      [args.enabled],
+    );
+  }
+
+  // ── Wallet adapter payload methods ─────────────────────────────────────
+
+  /** Payload for `locking::deposit_locked`. @see {@link depositLocked} */
+  depositLockedPayload(args: DepositLockedArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.aptree}::locking::deposit_locked`,
+      [args.amount, args.tier],
+    );
+  }
+
+  /** Payload for `locking::add_to_position`. @see {@link addToPosition} */
+  addToPositionPayload(args: AddToPositionArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.aptree}::locking::add_to_position`,
+      [args.positionId, args.amount],
+    );
+  }
+
+  /** Payload for `locking::withdraw_early`. @see {@link withdrawEarly} */
+  withdrawEarlyPayload(args: WithdrawEarlyArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.aptree}::locking::withdraw_early`,
+      [args.positionId, args.amount],
+    );
+  }
+
+  /** Payload for `locking::withdraw_unlocked`. @see {@link withdrawUnlocked} */
+  withdrawUnlockedPayload(args: WithdrawUnlockedArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.aptree}::locking::withdraw_unlocked`,
+      [args.positionId],
+    );
+  }
+
+  /** Payload for `locking::emergency_unlock`. @see {@link emergencyUnlock} */
+  emergencyUnlockPayload(args: EmergencyUnlockArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.aptree}::locking::emergency_unlock`,
+      [args.positionId],
+    );
+  }
+
+  /** Payload for `locking::set_tier_limit`. @see {@link setTierLimit} */
+  setTierLimitPayload(args: SetTierLimitArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.aptree}::locking::set_tier_limit`,
+      [args.tier, args.newLimitBps],
+    );
+  }
+
+  /** Payload for `locking::set_locks_enabled`. @see {@link setLocksEnabled} */
+  setLocksEnabledPayload(args: SetLocksEnabledArgs): InputEntryFunctionData {
+    return this.buildPayload(
       `${this.addresses.aptree}::locking::set_locks_enabled`,
       [args.enabled],
     );

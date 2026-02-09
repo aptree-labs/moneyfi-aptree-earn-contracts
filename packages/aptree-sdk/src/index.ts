@@ -30,5 +30,8 @@ export { GladeModule, GladeBuilder } from "./modules/glade";
 // ── Types ──────────────────────────────────────────────────────────────────
 export * from "./types";
 
+// ── Re-exported Aptos SDK types (for wallet adapter consumers) ────────────
+export type { InputEntryFunctionData } from "@aptos-labs/ts-sdk";
+
 // ── Utilities ──────────────────────────────────────────────────────────────
 export * from "./utils";

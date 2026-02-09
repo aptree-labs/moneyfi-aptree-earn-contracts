@@ -1,4 +1,8 @@
-import { AccountAddressInput, SimpleTransaction } from "@aptos-labs/ts-sdk";
+import {
+  AccountAddressInput,
+  InputEntryFunctionData,
+  SimpleTransaction,
+} from "@aptos-labs/ts-sdk";
 import { BaseModule } from "../base-module";
 import type {
   DepositGuaranteedArgs,
@@ -332,6 +336,120 @@ export class GuaranteedYieldBuilder extends BaseModule {
   ): Promise<SimpleTransaction> {
     return this.buildTransaction(
       sender,
+      `${this.addresses.aptree}::GuaranteedYieldLocking::set_min_deposit`,
+      [args.newMin],
+    );
+  }
+
+  // ── Wallet adapter payload methods ─────────────────────────────────────
+
+  /** Payload for `GuaranteedYieldLocking::deposit_guaranteed`. @see {@link depositGuaranteed} */
+  depositGuaranteedPayload(args: DepositGuaranteedArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::deposit_guaranteed`,
+      [args.amount, args.tier, args.minAetReceived],
+    );
+  }
+
+  /** Payload for `GuaranteedYieldLocking::request_unlock_guaranteed`. @see {@link requestUnlockGuaranteed} */
+  requestUnlockGuaranteedPayload(args: RequestUnlockGuaranteedArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::request_unlock_guaranteed`,
+      [args.positionId],
+    );
+  }
+
+  /** Payload for `GuaranteedYieldLocking::withdraw_guaranteed`. @see {@link withdrawGuaranteed} */
+  withdrawGuaranteedPayload(args: WithdrawGuaranteedArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::withdraw_guaranteed`,
+      [args.positionId],
+    );
+  }
+
+  /** Payload for `GuaranteedYieldLocking::fund_cashback_vault`. @see {@link fundCashbackVault} */
+  fundCashbackVaultPayload(args: FundCashbackVaultArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::fund_cashback_vault`,
+      [args.amount],
+    );
+  }
+
+  /** Payload for `GuaranteedYieldLocking::request_emergency_unlock_guaranteed`. @see {@link requestEmergencyUnlockGuaranteed} */
+  requestEmergencyUnlockGuaranteedPayload(args: RequestEmergencyUnlockGuaranteedArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::request_emergency_unlock_guaranteed`,
+      [args.positionId],
+    );
+  }
+
+  /** Payload for `GuaranteedYieldLocking::withdraw_emergency_guaranteed`. @see {@link withdrawEmergencyGuaranteed} */
+  withdrawEmergencyGuaranteedPayload(args: WithdrawEmergencyGuaranteedArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::withdraw_emergency_guaranteed`,
+      [args.positionId],
+    );
+  }
+
+  /** Payload for `GuaranteedYieldLocking::set_tier_yield`. @see {@link setTierYield} */
+  setTierYieldPayload(args: SetTierYieldArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::set_tier_yield`,
+      [args.tier, args.newYieldBps],
+    );
+  }
+
+  /** Payload for `GuaranteedYieldLocking::set_treasury`. @see {@link setTreasury} */
+  setTreasuryPayload(args: SetTreasuryArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::set_treasury`,
+      [args.newTreasury],
+    );
+  }
+
+  /** Payload for `GuaranteedYieldLocking::set_deposits_enabled`. @see {@link setDepositsEnabled} */
+  setDepositsEnabledPayload(args: SetDepositsEnabledArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::set_deposits_enabled`,
+      [args.enabled],
+    );
+  }
+
+  /** Payload for `GuaranteedYieldLocking::admin_withdraw_cashback_vault`. @see {@link adminWithdrawCashbackVault} */
+  adminWithdrawCashbackVaultPayload(args: AdminWithdrawCashbackVaultArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::admin_withdraw_cashback_vault`,
+      [args.amount],
+    );
+  }
+
+  /** Payload for `GuaranteedYieldLocking::propose_admin`. @see {@link proposeAdmin} */
+  proposeAdminPayload(args: ProposeAdminArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::propose_admin`,
+      [args.newAdmin],
+    );
+  }
+
+  /** Payload for `GuaranteedYieldLocking::accept_admin`. @see {@link acceptAdmin} */
+  acceptAdminPayload(): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::accept_admin`,
+      [],
+    );
+  }
+
+  /** Payload for `GuaranteedYieldLocking::set_max_total_locked`. @see {@link setMaxTotalLocked} */
+  setMaxTotalLockedPayload(args: SetMaxTotalLockedArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::set_max_total_locked`,
+      [args.newMax],
+    );
+  }
+
+  /** Payload for `GuaranteedYieldLocking::set_min_deposit`. @see {@link setMinDeposit} */
+  setMinDepositPayload(args: SetMinDepositArgs): InputEntryFunctionData {
+    return this.buildPayload(
       `${this.addresses.aptree}::GuaranteedYieldLocking::set_min_deposit`,
       [args.newMin],
     );

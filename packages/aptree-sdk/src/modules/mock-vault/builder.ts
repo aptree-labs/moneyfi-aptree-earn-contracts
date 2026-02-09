@@ -1,4 +1,8 @@
-import { AccountAddressInput, SimpleTransaction } from "@aptos-labs/ts-sdk";
+import {
+  AccountAddressInput,
+  InputEntryFunctionData,
+  SimpleTransaction,
+} from "@aptos-labs/ts-sdk";
 import { BaseModule } from "../base-module";
 import type {
   MockVaultDepositArgs,
@@ -182,6 +186,72 @@ export class MockVaultBuilder extends BaseModule {
   ): Promise<SimpleTransaction> {
     return this.buildTransaction(
       sender,
+      `${this.addresses.moneyfi}::vault::set_total_deposits`,
+      [args.amount],
+    );
+  }
+
+  // ── Wallet adapter payload methods ─────────────────────────────────────
+
+  /** Payload for `vault::deposit`. @see {@link deposit} */
+  depositPayload(args: MockVaultDepositArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.moneyfi}::vault::deposit`,
+      [args.token, args.amount],
+    );
+  }
+
+  /** Payload for `vault::request_withdraw`. @see {@link requestWithdraw} */
+  requestWithdrawPayload(args: MockVaultRequestWithdrawArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.moneyfi}::vault::request_withdraw`,
+      [args.token, args.amount],
+    );
+  }
+
+  /** Payload for `vault::withdraw_requested_amount`. @see {@link withdrawRequestedAmount} */
+  withdrawRequestedAmountPayload(args: MockVaultWithdrawRequestedArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.moneyfi}::vault::withdraw_requested_amount`,
+      [args.token],
+    );
+  }
+
+  /** Payload for `vault::set_yield_multiplier`. @see {@link setYieldMultiplier} */
+  setYieldMultiplierPayload(args: SetYieldMultiplierArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.moneyfi}::vault::set_yield_multiplier`,
+      [args.multiplierBps],
+    );
+  }
+
+  /** Payload for `vault::simulate_yield`. @see {@link simulateYield} */
+  simulateYieldPayload(args: SimulateYieldArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.moneyfi}::vault::simulate_yield`,
+      [args.yieldBps],
+    );
+  }
+
+  /** Payload for `vault::simulate_loss`. @see {@link simulateLoss} */
+  simulateLossPayload(args: SimulateLossArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.moneyfi}::vault::simulate_loss`,
+      [args.lossBps],
+    );
+  }
+
+  /** Payload for `vault::reset_vault`. @see {@link resetVault} */
+  resetVaultPayload(): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.moneyfi}::vault::reset_vault`,
+      [],
+    );
+  }
+
+  /** Payload for `vault::set_total_deposits`. @see {@link setTotalDeposits} */
+  setTotalDepositsPayload(args: SetTotalDepositsArgs): InputEntryFunctionData {
+    return this.buildPayload(
       `${this.addresses.moneyfi}::vault::set_total_deposits`,
       [args.amount],
     );

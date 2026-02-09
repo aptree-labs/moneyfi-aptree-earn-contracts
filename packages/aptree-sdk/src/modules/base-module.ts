@@ -2,6 +2,7 @@ import {
   Aptos,
   AccountAddressInput,
   InputViewFunctionData,
+  InputEntryFunctionData,
   SimpleTransaction,
   MoveFunctionId,
 } from "@aptos-labs/ts-sdk";
@@ -47,6 +48,37 @@ export abstract class BaseModule {
         functionArguments,
       },
     });
+  }
+
+  /**
+   * Create an entry-function payload for use with wallet adapters.
+   *
+   * Unlike {@link buildTransaction}, this does **not** call the network.
+   * It returns an {@link InputEntryFunctionData} object that can be passed
+   * directly to a wallet adapter's `signAndSubmitTransaction`:
+   *
+   * ```ts
+   * const payload = client.bridge.builder.depositPayload({ amount, provider });
+   * await signAndSubmitTransaction({ data: payload });
+   * ```
+   *
+   * @param functionId - Fully qualified Move function identifier (e.g. `"0x1::module::function"`).
+   * @param functionArguments - Arguments to pass to the Move function.
+   * @param typeArguments - Generic type arguments, if any.
+   * @returns An {@link InputEntryFunctionData} payload ready for wallet adapter submission.
+   */
+  protected buildPayload(
+    functionId: MoveFunctionId,
+    functionArguments: Array<
+      string | number | boolean | Uint8Array | AccountAddressInput
+    >,
+    typeArguments?: string[],
+  ): InputEntryFunctionData {
+    return {
+      function: functionId,
+      typeArguments: typeArguments ?? [],
+      functionArguments,
+    };
   }
 
   /**

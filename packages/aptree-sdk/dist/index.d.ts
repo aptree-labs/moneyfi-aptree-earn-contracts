@@ -1,4 +1,5 @@
-import { Aptos, AptosConfig, AccountAddressInput, MoveFunctionId, SimpleTransaction } from '@aptos-labs/ts-sdk';
+import { Aptos, AptosConfig, AccountAddressInput, MoveFunctionId, SimpleTransaction, InputEntryFunctionData } from '@aptos-labs/ts-sdk';
+export { InputEntryFunctionData } from '@aptos-labs/ts-sdk';
 
 /**
  * Contract deployment addresses for the Aptree protocol.
@@ -44,6 +45,24 @@ declare abstract class BaseModule {
      * @returns A built {@link SimpleTransaction} ready for signing and submission.
      */
     protected buildTransaction(sender: AccountAddressInput, functionId: MoveFunctionId, functionArguments: Array<string | number | boolean | Uint8Array | AccountAddressInput>, typeArguments?: string[]): Promise<SimpleTransaction>;
+    /**
+     * Create an entry-function payload for use with wallet adapters.
+     *
+     * Unlike {@link buildTransaction}, this does **not** call the network.
+     * It returns an {@link InputEntryFunctionData} object that can be passed
+     * directly to a wallet adapter's `signAndSubmitTransaction`:
+     *
+     * ```ts
+     * const payload = client.bridge.builder.depositPayload({ amount, provider });
+     * await signAndSubmitTransaction({ data: payload });
+     * ```
+     *
+     * @param functionId - Fully qualified Move function identifier (e.g. `"0x1::module::function"`).
+     * @param functionArguments - Arguments to pass to the Move function.
+     * @param typeArguments - Generic type arguments, if any.
+     * @returns An {@link InputEntryFunctionData} payload ready for wallet adapter submission.
+     */
+    protected buildPayload(functionId: MoveFunctionId, functionArguments: Array<string | number | boolean | Uint8Array | AccountAddressInput>, typeArguments?: string[]): InputEntryFunctionData;
     /**
      * Call an on-chain view function and return the raw result array.
      *
@@ -215,6 +234,18 @@ declare class BridgeBuilder extends BaseModule {
      * @returns A built transaction ready for signing.
      */
     adapterWithdraw(sender: AccountAddressInput, args: MoneyFiAdapterWithdrawArgs): Promise<SimpleTransaction>;
+    /** Payload for `bridge::deposit`. @see {@link deposit} */
+    depositPayload(args: BridgeDepositArgs): InputEntryFunctionData;
+    /** Payload for `bridge::request`. @see {@link request} */
+    requestPayload(args: BridgeRequestArgs): InputEntryFunctionData;
+    /** Payload for `bridge::withdraw`. @see {@link withdraw} */
+    withdrawPayload(args: BridgeWithdrawArgs): InputEntryFunctionData;
+    /** Payload for `moneyfi_adapter::deposit`. @see {@link adapterDeposit} */
+    adapterDepositPayload(args: MoneyFiAdapterDepositArgs): InputEntryFunctionData;
+    /** Payload for `moneyfi_adapter::request`. @see {@link adapterRequest} */
+    adapterRequestPayload(args: MoneyFiAdapterRequestArgs): InputEntryFunctionData;
+    /** Payload for `moneyfi_adapter::withdraw`. @see {@link adapterWithdraw} */
+    adapterWithdrawPayload(args: MoneyFiAdapterWithdrawArgs): InputEntryFunctionData;
 }
 
 /**
@@ -516,6 +547,20 @@ declare class LockingBuilder extends BaseModule {
      * @returns A built transaction ready for signing.
      */
     setLocksEnabled(sender: AccountAddressInput, args: SetLocksEnabledArgs): Promise<SimpleTransaction>;
+    /** Payload for `locking::deposit_locked`. @see {@link depositLocked} */
+    depositLockedPayload(args: DepositLockedArgs): InputEntryFunctionData;
+    /** Payload for `locking::add_to_position`. @see {@link addToPosition} */
+    addToPositionPayload(args: AddToPositionArgs): InputEntryFunctionData;
+    /** Payload for `locking::withdraw_early`. @see {@link withdrawEarly} */
+    withdrawEarlyPayload(args: WithdrawEarlyArgs): InputEntryFunctionData;
+    /** Payload for `locking::withdraw_unlocked`. @see {@link withdrawUnlocked} */
+    withdrawUnlockedPayload(args: WithdrawUnlockedArgs): InputEntryFunctionData;
+    /** Payload for `locking::emergency_unlock`. @see {@link emergencyUnlock} */
+    emergencyUnlockPayload(args: EmergencyUnlockArgs): InputEntryFunctionData;
+    /** Payload for `locking::set_tier_limit`. @see {@link setTierLimit} */
+    setTierLimitPayload(args: SetTierLimitArgs): InputEntryFunctionData;
+    /** Payload for `locking::set_locks_enabled`. @see {@link setLocksEnabled} */
+    setLocksEnabledPayload(args: SetLocksEnabledArgs): InputEntryFunctionData;
 }
 
 /**
@@ -978,6 +1023,34 @@ declare class GuaranteedYieldBuilder extends BaseModule {
      * @param args - {@link SetMinDepositArgs}
      */
     setMinDeposit(sender: AccountAddressInput, args: SetMinDepositArgs): Promise<SimpleTransaction>;
+    /** Payload for `GuaranteedYieldLocking::deposit_guaranteed`. @see {@link depositGuaranteed} */
+    depositGuaranteedPayload(args: DepositGuaranteedArgs): InputEntryFunctionData;
+    /** Payload for `GuaranteedYieldLocking::request_unlock_guaranteed`. @see {@link requestUnlockGuaranteed} */
+    requestUnlockGuaranteedPayload(args: RequestUnlockGuaranteedArgs): InputEntryFunctionData;
+    /** Payload for `GuaranteedYieldLocking::withdraw_guaranteed`. @see {@link withdrawGuaranteed} */
+    withdrawGuaranteedPayload(args: WithdrawGuaranteedArgs): InputEntryFunctionData;
+    /** Payload for `GuaranteedYieldLocking::fund_cashback_vault`. @see {@link fundCashbackVault} */
+    fundCashbackVaultPayload(args: FundCashbackVaultArgs): InputEntryFunctionData;
+    /** Payload for `GuaranteedYieldLocking::request_emergency_unlock_guaranteed`. @see {@link requestEmergencyUnlockGuaranteed} */
+    requestEmergencyUnlockGuaranteedPayload(args: RequestEmergencyUnlockGuaranteedArgs): InputEntryFunctionData;
+    /** Payload for `GuaranteedYieldLocking::withdraw_emergency_guaranteed`. @see {@link withdrawEmergencyGuaranteed} */
+    withdrawEmergencyGuaranteedPayload(args: WithdrawEmergencyGuaranteedArgs): InputEntryFunctionData;
+    /** Payload for `GuaranteedYieldLocking::set_tier_yield`. @see {@link setTierYield} */
+    setTierYieldPayload(args: SetTierYieldArgs): InputEntryFunctionData;
+    /** Payload for `GuaranteedYieldLocking::set_treasury`. @see {@link setTreasury} */
+    setTreasuryPayload(args: SetTreasuryArgs): InputEntryFunctionData;
+    /** Payload for `GuaranteedYieldLocking::set_deposits_enabled`. @see {@link setDepositsEnabled} */
+    setDepositsEnabledPayload(args: SetDepositsEnabledArgs): InputEntryFunctionData;
+    /** Payload for `GuaranteedYieldLocking::admin_withdraw_cashback_vault`. @see {@link adminWithdrawCashbackVault} */
+    adminWithdrawCashbackVaultPayload(args: AdminWithdrawCashbackVaultArgs): InputEntryFunctionData;
+    /** Payload for `GuaranteedYieldLocking::propose_admin`. @see {@link proposeAdmin} */
+    proposeAdminPayload(args: ProposeAdminArgs): InputEntryFunctionData;
+    /** Payload for `GuaranteedYieldLocking::accept_admin`. @see {@link acceptAdmin} */
+    acceptAdminPayload(): InputEntryFunctionData;
+    /** Payload for `GuaranteedYieldLocking::set_max_total_locked`. @see {@link setMaxTotalLocked} */
+    setMaxTotalLockedPayload(args: SetMaxTotalLockedArgs): InputEntryFunctionData;
+    /** Payload for `GuaranteedYieldLocking::set_min_deposit`. @see {@link setMinDeposit} */
+    setMinDepositPayload(args: SetMinDepositArgs): InputEntryFunctionData;
 }
 
 /**
@@ -1313,6 +1386,22 @@ declare class MockVaultBuilder extends BaseModule {
      * @param args - {@link SetTotalDepositsArgs}
      */
     setTotalDeposits(sender: AccountAddressInput, args: SetTotalDepositsArgs): Promise<SimpleTransaction>;
+    /** Payload for `vault::deposit`. @see {@link deposit} */
+    depositPayload(args: MockVaultDepositArgs): InputEntryFunctionData;
+    /** Payload for `vault::request_withdraw`. @see {@link requestWithdraw} */
+    requestWithdrawPayload(args: MockVaultRequestWithdrawArgs): InputEntryFunctionData;
+    /** Payload for `vault::withdraw_requested_amount`. @see {@link withdrawRequestedAmount} */
+    withdrawRequestedAmountPayload(args: MockVaultWithdrawRequestedArgs): InputEntryFunctionData;
+    /** Payload for `vault::set_yield_multiplier`. @see {@link setYieldMultiplier} */
+    setYieldMultiplierPayload(args: SetYieldMultiplierArgs): InputEntryFunctionData;
+    /** Payload for `vault::simulate_yield`. @see {@link simulateYield} */
+    simulateYieldPayload(args: SimulateYieldArgs): InputEntryFunctionData;
+    /** Payload for `vault::simulate_loss`. @see {@link simulateLoss} */
+    simulateLossPayload(args: SimulateLossArgs): InputEntryFunctionData;
+    /** Payload for `vault::reset_vault`. @see {@link resetVault} */
+    resetVaultPayload(): InputEntryFunctionData;
+    /** Payload for `vault::set_total_deposits`. @see {@link setTotalDeposits} */
+    setTotalDepositsPayload(args: SetTotalDepositsArgs): InputEntryFunctionData;
 }
 
 /**
@@ -1707,6 +1796,18 @@ declare class GladeBuilder extends BaseModule {
      * @returns A built transaction ready for signing.
      */
     swap(sender: AccountAddressInput, args: SwapArgs, typeArguments: string[]): Promise<SimpleTransaction>;
+    /** Payload for `glade_flexible::deposit`. @see {@link deposit} */
+    depositPayload(args: GladeFlexibleDepositArgs, typeArguments: string[]): InputEntryFunctionData;
+    /** Payload for `glade_flexible::withdraw`. @see {@link withdraw} */
+    withdrawPayload(args: GladeFlexibleWithdrawArgs, typeArguments: string[]): InputEntryFunctionData;
+    /** Payload for `glade_guaranteed::deposit_guaranteed`. @see {@link depositGuaranteed} */
+    depositGuaranteedPayload(args: GladeGuaranteedDepositArgs, typeArguments: string[]): InputEntryFunctionData;
+    /** Payload for `glade_guaranteed::unlock_guaranteed`. @see {@link unlockGuaranteed} */
+    unlockGuaranteedPayload(args: GladeGuaranteedUnlockArgs, typeArguments: string[]): InputEntryFunctionData;
+    /** Payload for `glade_guaranteed::emergency_unlock_guaranteed`. @see {@link emergencyUnlockGuaranteed} */
+    emergencyUnlockGuaranteedPayload(args: GladeGuaranteedEmergencyUnlockArgs, typeArguments: string[]): InputEntryFunctionData;
+    /** Payload for `swap_helpers::swap`. @see {@link swap} */
+    swapPayload(args: SwapArgs, typeArguments: string[]): InputEntryFunctionData;
 }
 
 /**

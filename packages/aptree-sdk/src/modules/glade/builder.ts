@@ -1,4 +1,8 @@
-import { AccountAddressInput, SimpleTransaction } from "@aptos-labs/ts-sdk";
+import {
+  AccountAddressInput,
+  InputEntryFunctionData,
+  SimpleTransaction,
+} from "@aptos-labs/ts-sdk";
 import { BaseModule } from "../base-module";
 import type {
   PanoraSwapParams,
@@ -258,6 +262,105 @@ export class GladeBuilder extends BaseModule {
 
     return this.buildTransaction(
       sender,
+      `${this.addresses.aptree}::swap_helpers::swap`,
+      fnArgs as Array<string | number | boolean | Uint8Array>,
+      typeArguments,
+    );
+  }
+
+  // ── Wallet adapter payload methods ─────────────────────────────────────
+
+  /** Payload for `glade_flexible::deposit`. @see {@link deposit} */
+  depositPayload(
+    args: GladeFlexibleDepositArgs,
+    typeArguments: string[],
+  ): InputEntryFunctionData {
+    const fnArgs = [
+      ...swapParamsToArgs(args.swapParams),
+      args.depositAmount,
+      args.provider,
+    ];
+    return this.buildPayload(
+      `${this.addresses.aptree}::glade_flexible::deposit`,
+      fnArgs as Array<string | number | boolean | Uint8Array>,
+      typeArguments,
+    );
+  }
+
+  /** Payload for `glade_flexible::withdraw`. @see {@link withdraw} */
+  withdrawPayload(
+    args: GladeFlexibleWithdrawArgs,
+    typeArguments: string[],
+  ): InputEntryFunctionData {
+    const fnArgs = [
+      ...swapParamsToArgs(args.swapParams),
+      args.withdrawalAmount,
+      args.provider,
+    ];
+    return this.buildPayload(
+      `${this.addresses.aptree}::glade_flexible::withdraw`,
+      fnArgs as Array<string | number | boolean | Uint8Array>,
+      typeArguments,
+    );
+  }
+
+  /** Payload for `glade_guaranteed::deposit_guaranteed`. @see {@link depositGuaranteed} */
+  depositGuaranteedPayload(
+    args: GladeGuaranteedDepositArgs,
+    typeArguments: string[],
+  ): InputEntryFunctionData {
+    const fnArgs = [
+      ...swapParamsToArgs(args.swapParams),
+      args.depositAmount,
+      args.tier,
+      args.minAetReceived,
+    ];
+    return this.buildPayload(
+      `${this.addresses.aptree}::glade_guaranteed::deposit_guaranteed`,
+      fnArgs as Array<string | number | boolean | Uint8Array>,
+      typeArguments,
+    );
+  }
+
+  /** Payload for `glade_guaranteed::unlock_guaranteed`. @see {@link unlockGuaranteed} */
+  unlockGuaranteedPayload(
+    args: GladeGuaranteedUnlockArgs,
+    typeArguments: string[],
+  ): InputEntryFunctionData {
+    const fnArgs = [
+      ...swapParamsToArgs(args.swapParams),
+      args.positionId,
+    ];
+    return this.buildPayload(
+      `${this.addresses.aptree}::glade_guaranteed::unlock_guaranteed`,
+      fnArgs as Array<string | number | boolean | Uint8Array>,
+      typeArguments,
+    );
+  }
+
+  /** Payload for `glade_guaranteed::emergency_unlock_guaranteed`. @see {@link emergencyUnlockGuaranteed} */
+  emergencyUnlockGuaranteedPayload(
+    args: GladeGuaranteedEmergencyUnlockArgs,
+    typeArguments: string[],
+  ): InputEntryFunctionData {
+    const fnArgs = [
+      ...swapParamsToArgs(args.swapParams),
+      args.positionId,
+    ];
+    return this.buildPayload(
+      `${this.addresses.aptree}::glade_guaranteed::emergency_unlock_guaranteed`,
+      fnArgs as Array<string | number | boolean | Uint8Array>,
+      typeArguments,
+    );
+  }
+
+  /** Payload for `swap_helpers::swap`. @see {@link swap} */
+  swapPayload(
+    args: SwapArgs,
+    typeArguments: string[],
+  ): InputEntryFunctionData {
+    const fnArgs = swapParamsToArgs(args.swapParams);
+    return this.buildPayload(
       `${this.addresses.aptree}::swap_helpers::swap`,
       fnArgs as Array<string | number | boolean | Uint8Array>,
       typeArguments,

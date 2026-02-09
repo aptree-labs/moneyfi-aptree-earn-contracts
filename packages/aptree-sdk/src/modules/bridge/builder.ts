@@ -1,4 +1,8 @@
-import { AccountAddressInput, SimpleTransaction } from "@aptos-labs/ts-sdk";
+import {
+  AccountAddressInput,
+  InputEntryFunctionData,
+  SimpleTransaction,
+} from "@aptos-labs/ts-sdk";
 import { BaseModule } from "../base-module";
 import type {
   BridgeDepositArgs,
@@ -150,6 +154,56 @@ export class BridgeBuilder extends BaseModule {
   ): Promise<SimpleTransaction> {
     return this.buildTransaction(
       sender,
+      `${this.addresses.aptree}::moneyfi_adapter::withdraw`,
+      [args.amount],
+    );
+  }
+
+  // ── Wallet adapter payload methods ─────────────────────────────────────
+
+  /** Payload for `bridge::deposit`. @see {@link deposit} */
+  depositPayload(args: BridgeDepositArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.aptree}::bridge::deposit`,
+      [args.amount, args.provider],
+    );
+  }
+
+  /** Payload for `bridge::request`. @see {@link request} */
+  requestPayload(args: BridgeRequestArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.aptree}::bridge::request`,
+      [args.amount, args.minAmount],
+    );
+  }
+
+  /** Payload for `bridge::withdraw`. @see {@link withdraw} */
+  withdrawPayload(args: BridgeWithdrawArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.aptree}::bridge::withdraw`,
+      [args.amount, args.provider],
+    );
+  }
+
+  /** Payload for `moneyfi_adapter::deposit`. @see {@link adapterDeposit} */
+  adapterDepositPayload(args: MoneyFiAdapterDepositArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.aptree}::moneyfi_adapter::deposit`,
+      [args.amount],
+    );
+  }
+
+  /** Payload for `moneyfi_adapter::request`. @see {@link adapterRequest} */
+  adapterRequestPayload(args: MoneyFiAdapterRequestArgs): InputEntryFunctionData {
+    return this.buildPayload(
+      `${this.addresses.aptree}::moneyfi_adapter::request`,
+      [args.amount, args.minSharePrice],
+    );
+  }
+
+  /** Payload for `moneyfi_adapter::withdraw`. @see {@link adapterWithdraw} */
+  adapterWithdrawPayload(args: MoneyFiAdapterWithdrawArgs): InputEntryFunctionData {
+    return this.buildPayload(
       `${this.addresses.aptree}::moneyfi_adapter::withdraw`,
       [args.amount],
     );

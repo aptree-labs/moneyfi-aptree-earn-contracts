@@ -27,6 +27,30 @@ var BaseModule = class {
     });
   }
   /**
+   * Create an entry-function payload for use with wallet adapters.
+   *
+   * Unlike {@link buildTransaction}, this does **not** call the network.
+   * It returns an {@link InputEntryFunctionData} object that can be passed
+   * directly to a wallet adapter's `signAndSubmitTransaction`:
+   *
+   * ```ts
+   * const payload = client.bridge.builder.depositPayload({ amount, provider });
+   * await signAndSubmitTransaction({ data: payload });
+   * ```
+   *
+   * @param functionId - Fully qualified Move function identifier (e.g. `"0x1::module::function"`).
+   * @param functionArguments - Arguments to pass to the Move function.
+   * @param typeArguments - Generic type arguments, if any.
+   * @returns An {@link InputEntryFunctionData} payload ready for wallet adapter submission.
+   */
+  buildPayload(functionId, functionArguments, typeArguments) {
+    return {
+      function: functionId,
+      typeArguments: typeArguments ?? [],
+      functionArguments
+    };
+  }
+  /**
    * Call an on-chain view function and return the raw result array.
    *
    * @param functionId - Fully qualified Move function identifier.
@@ -159,6 +183,49 @@ var BridgeBuilder = class extends BaseModule {
   async adapterWithdraw(sender, args) {
     return this.buildTransaction(
       sender,
+      `${this.addresses.aptree}::moneyfi_adapter::withdraw`,
+      [args.amount]
+    );
+  }
+  // ── Wallet adapter payload methods ─────────────────────────────────────
+  /** Payload for `bridge::deposit`. @see {@link deposit} */
+  depositPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::bridge::deposit`,
+      [args.amount, args.provider]
+    );
+  }
+  /** Payload for `bridge::request`. @see {@link request} */
+  requestPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::bridge::request`,
+      [args.amount, args.minAmount]
+    );
+  }
+  /** Payload for `bridge::withdraw`. @see {@link withdraw} */
+  withdrawPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::bridge::withdraw`,
+      [args.amount, args.provider]
+    );
+  }
+  /** Payload for `moneyfi_adapter::deposit`. @see {@link adapterDeposit} */
+  adapterDepositPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::moneyfi_adapter::deposit`,
+      [args.amount]
+    );
+  }
+  /** Payload for `moneyfi_adapter::request`. @see {@link adapterRequest} */
+  adapterRequestPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::moneyfi_adapter::request`,
+      [args.amount, args.minSharePrice]
+    );
+  }
+  /** Payload for `moneyfi_adapter::withdraw`. @see {@link adapterWithdraw} */
+  adapterWithdrawPayload(args) {
+    return this.buildPayload(
       `${this.addresses.aptree}::moneyfi_adapter::withdraw`,
       [args.amount]
     );
@@ -403,6 +470,56 @@ var LockingBuilder = class extends BaseModule {
   async setLocksEnabled(sender, args) {
     return this.buildTransaction(
       sender,
+      `${this.addresses.aptree}::locking::set_locks_enabled`,
+      [args.enabled]
+    );
+  }
+  // ── Wallet adapter payload methods ─────────────────────────────────────
+  /** Payload for `locking::deposit_locked`. @see {@link depositLocked} */
+  depositLockedPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::locking::deposit_locked`,
+      [args.amount, args.tier]
+    );
+  }
+  /** Payload for `locking::add_to_position`. @see {@link addToPosition} */
+  addToPositionPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::locking::add_to_position`,
+      [args.positionId, args.amount]
+    );
+  }
+  /** Payload for `locking::withdraw_early`. @see {@link withdrawEarly} */
+  withdrawEarlyPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::locking::withdraw_early`,
+      [args.positionId, args.amount]
+    );
+  }
+  /** Payload for `locking::withdraw_unlocked`. @see {@link withdrawUnlocked} */
+  withdrawUnlockedPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::locking::withdraw_unlocked`,
+      [args.positionId]
+    );
+  }
+  /** Payload for `locking::emergency_unlock`. @see {@link emergencyUnlock} */
+  emergencyUnlockPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::locking::emergency_unlock`,
+      [args.positionId]
+    );
+  }
+  /** Payload for `locking::set_tier_limit`. @see {@link setTierLimit} */
+  setTierLimitPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::locking::set_tier_limit`,
+      [args.tier, args.newLimitBps]
+    );
+  }
+  /** Payload for `locking::set_locks_enabled`. @see {@link setLocksEnabled} */
+  setLocksEnabledPayload(args) {
+    return this.buildPayload(
       `${this.addresses.aptree}::locking::set_locks_enabled`,
       [args.enabled]
     );
@@ -824,6 +941,105 @@ var GuaranteedYieldBuilder = class extends BaseModule {
       [args.newMin]
     );
   }
+  // ── Wallet adapter payload methods ─────────────────────────────────────
+  /** Payload for `GuaranteedYieldLocking::deposit_guaranteed`. @see {@link depositGuaranteed} */
+  depositGuaranteedPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::deposit_guaranteed`,
+      [args.amount, args.tier, args.minAetReceived]
+    );
+  }
+  /** Payload for `GuaranteedYieldLocking::request_unlock_guaranteed`. @see {@link requestUnlockGuaranteed} */
+  requestUnlockGuaranteedPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::request_unlock_guaranteed`,
+      [args.positionId]
+    );
+  }
+  /** Payload for `GuaranteedYieldLocking::withdraw_guaranteed`. @see {@link withdrawGuaranteed} */
+  withdrawGuaranteedPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::withdraw_guaranteed`,
+      [args.positionId]
+    );
+  }
+  /** Payload for `GuaranteedYieldLocking::fund_cashback_vault`. @see {@link fundCashbackVault} */
+  fundCashbackVaultPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::fund_cashback_vault`,
+      [args.amount]
+    );
+  }
+  /** Payload for `GuaranteedYieldLocking::request_emergency_unlock_guaranteed`. @see {@link requestEmergencyUnlockGuaranteed} */
+  requestEmergencyUnlockGuaranteedPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::request_emergency_unlock_guaranteed`,
+      [args.positionId]
+    );
+  }
+  /** Payload for `GuaranteedYieldLocking::withdraw_emergency_guaranteed`. @see {@link withdrawEmergencyGuaranteed} */
+  withdrawEmergencyGuaranteedPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::withdraw_emergency_guaranteed`,
+      [args.positionId]
+    );
+  }
+  /** Payload for `GuaranteedYieldLocking::set_tier_yield`. @see {@link setTierYield} */
+  setTierYieldPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::set_tier_yield`,
+      [args.tier, args.newYieldBps]
+    );
+  }
+  /** Payload for `GuaranteedYieldLocking::set_treasury`. @see {@link setTreasury} */
+  setTreasuryPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::set_treasury`,
+      [args.newTreasury]
+    );
+  }
+  /** Payload for `GuaranteedYieldLocking::set_deposits_enabled`. @see {@link setDepositsEnabled} */
+  setDepositsEnabledPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::set_deposits_enabled`,
+      [args.enabled]
+    );
+  }
+  /** Payload for `GuaranteedYieldLocking::admin_withdraw_cashback_vault`. @see {@link adminWithdrawCashbackVault} */
+  adminWithdrawCashbackVaultPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::admin_withdraw_cashback_vault`,
+      [args.amount]
+    );
+  }
+  /** Payload for `GuaranteedYieldLocking::propose_admin`. @see {@link proposeAdmin} */
+  proposeAdminPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::propose_admin`,
+      [args.newAdmin]
+    );
+  }
+  /** Payload for `GuaranteedYieldLocking::accept_admin`. @see {@link acceptAdmin} */
+  acceptAdminPayload() {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::accept_admin`,
+      []
+    );
+  }
+  /** Payload for `GuaranteedYieldLocking::set_max_total_locked`. @see {@link setMaxTotalLocked} */
+  setMaxTotalLockedPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::set_max_total_locked`,
+      [args.newMax]
+    );
+  }
+  /** Payload for `GuaranteedYieldLocking::set_min_deposit`. @see {@link setMinDeposit} */
+  setMinDepositPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::GuaranteedYieldLocking::set_min_deposit`,
+      [args.newMin]
+    );
+  }
 };
 
 // src/modules/guaranteed-yield/resources.ts
@@ -1202,6 +1418,63 @@ var MockVaultBuilder = class extends BaseModule {
       [args.amount]
     );
   }
+  // ── Wallet adapter payload methods ─────────────────────────────────────
+  /** Payload for `vault::deposit`. @see {@link deposit} */
+  depositPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.moneyfi}::vault::deposit`,
+      [args.token, args.amount]
+    );
+  }
+  /** Payload for `vault::request_withdraw`. @see {@link requestWithdraw} */
+  requestWithdrawPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.moneyfi}::vault::request_withdraw`,
+      [args.token, args.amount]
+    );
+  }
+  /** Payload for `vault::withdraw_requested_amount`. @see {@link withdrawRequestedAmount} */
+  withdrawRequestedAmountPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.moneyfi}::vault::withdraw_requested_amount`,
+      [args.token]
+    );
+  }
+  /** Payload for `vault::set_yield_multiplier`. @see {@link setYieldMultiplier} */
+  setYieldMultiplierPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.moneyfi}::vault::set_yield_multiplier`,
+      [args.multiplierBps]
+    );
+  }
+  /** Payload for `vault::simulate_yield`. @see {@link simulateYield} */
+  simulateYieldPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.moneyfi}::vault::simulate_yield`,
+      [args.yieldBps]
+    );
+  }
+  /** Payload for `vault::simulate_loss`. @see {@link simulateLoss} */
+  simulateLossPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.moneyfi}::vault::simulate_loss`,
+      [args.lossBps]
+    );
+  }
+  /** Payload for `vault::reset_vault`. @see {@link resetVault} */
+  resetVaultPayload() {
+    return this.buildPayload(
+      `${this.addresses.moneyfi}::vault::reset_vault`,
+      []
+    );
+  }
+  /** Payload for `vault::set_total_deposits`. @see {@link setTotalDeposits} */
+  setTotalDepositsPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.moneyfi}::vault::set_total_deposits`,
+      [args.amount]
+    );
+  }
 };
 
 // src/modules/mock-vault/resources.ts
@@ -1507,6 +1780,80 @@ var GladeBuilder = class extends BaseModule {
     const fnArgs = swapParamsToArgs(args.swapParams);
     return this.buildTransaction(
       sender,
+      `${this.addresses.aptree}::swap_helpers::swap`,
+      fnArgs,
+      typeArguments
+    );
+  }
+  // ── Wallet adapter payload methods ─────────────────────────────────────
+  /** Payload for `glade_flexible::deposit`. @see {@link deposit} */
+  depositPayload(args, typeArguments) {
+    const fnArgs = [
+      ...swapParamsToArgs(args.swapParams),
+      args.depositAmount,
+      args.provider
+    ];
+    return this.buildPayload(
+      `${this.addresses.aptree}::glade_flexible::deposit`,
+      fnArgs,
+      typeArguments
+    );
+  }
+  /** Payload for `glade_flexible::withdraw`. @see {@link withdraw} */
+  withdrawPayload(args, typeArguments) {
+    const fnArgs = [
+      ...swapParamsToArgs(args.swapParams),
+      args.withdrawalAmount,
+      args.provider
+    ];
+    return this.buildPayload(
+      `${this.addresses.aptree}::glade_flexible::withdraw`,
+      fnArgs,
+      typeArguments
+    );
+  }
+  /** Payload for `glade_guaranteed::deposit_guaranteed`. @see {@link depositGuaranteed} */
+  depositGuaranteedPayload(args, typeArguments) {
+    const fnArgs = [
+      ...swapParamsToArgs(args.swapParams),
+      args.depositAmount,
+      args.tier,
+      args.minAetReceived
+    ];
+    return this.buildPayload(
+      `${this.addresses.aptree}::glade_guaranteed::deposit_guaranteed`,
+      fnArgs,
+      typeArguments
+    );
+  }
+  /** Payload for `glade_guaranteed::unlock_guaranteed`. @see {@link unlockGuaranteed} */
+  unlockGuaranteedPayload(args, typeArguments) {
+    const fnArgs = [
+      ...swapParamsToArgs(args.swapParams),
+      args.positionId
+    ];
+    return this.buildPayload(
+      `${this.addresses.aptree}::glade_guaranteed::unlock_guaranteed`,
+      fnArgs,
+      typeArguments
+    );
+  }
+  /** Payload for `glade_guaranteed::emergency_unlock_guaranteed`. @see {@link emergencyUnlockGuaranteed} */
+  emergencyUnlockGuaranteedPayload(args, typeArguments) {
+    const fnArgs = [
+      ...swapParamsToArgs(args.swapParams),
+      args.positionId
+    ];
+    return this.buildPayload(
+      `${this.addresses.aptree}::glade_guaranteed::emergency_unlock_guaranteed`,
+      fnArgs,
+      typeArguments
+    );
+  }
+  /** Payload for `swap_helpers::swap`. @see {@link swap} */
+  swapPayload(args, typeArguments) {
+    const fnArgs = swapParamsToArgs(args.swapParams);
+    return this.buildPayload(
       `${this.addresses.aptree}::swap_helpers::swap`,
       fnArgs,
       typeArguments
