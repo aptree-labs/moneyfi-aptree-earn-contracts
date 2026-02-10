@@ -42,5 +42,12 @@ module aptree::bridge {
         moneyfi_adapter::withdraw(user, amount)
     }
 
-    // TODO: add zap in and zap out functions enabling depositing of basically any other asset on panora
+    public entry fun request_and_withdraw(
+        user: &signer,
+        amount: u64,
+        min_share_price: u128
+    ) {
+        moneyfi_adapter::request(user, amount, min_share_price);
+        moneyfi_adapter::withdraw(user, amount)
+    }
 }

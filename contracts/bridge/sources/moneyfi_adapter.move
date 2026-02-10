@@ -105,7 +105,7 @@ module aptree::moneyfi_adapter {
             option::none(),
             string::utf8(BRIDGE_TOKEN_NAME),
             string::utf8(BRIDGE_TOKEN_SYMBOL),
-            8,
+            6,
             string::utf8(BRIDGE_TOKEN_ICON),
             string::utf8(b"https://aptree.io")
         );
@@ -123,7 +123,7 @@ module aptree::moneyfi_adapter {
             option::none(),
             string::utf8(BRIDGE_WITHDRAWAL_TOKEN_NAME),
             string::utf8(BRIDGE_WITHDRAWAL_TOKEN_SYMBOL),
-            8,
+            6,
             string::utf8(BRIDGE_TOKEN_ICON),
             string::utf8(b"https://aptree.io")
         );
@@ -383,7 +383,7 @@ module aptree::moneyfi_adapter {
             option::none(),
             name,
             symbol,
-            8,
+            6,
             icon,
             string::utf8(b"https://tusd.aptree.io")
         );

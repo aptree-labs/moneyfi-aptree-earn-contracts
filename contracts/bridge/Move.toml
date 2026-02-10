@@ -4,7 +4,7 @@ version = "1.0.0"
 authors = []
 
 [addresses]
-aptree = "0x7609a1f4fffae8048bf48d7ba740fab64d7b30ec463512bb9b2fd45645b1326b"
+aptree = "0x951a31b39db54a4e32af927dce9fae7aa1ad14a1bb73318405ccf6cd5d66b3be"
 moneyfi_bridge_asset = "0x357b0b74bc833e95a115ad22604854d6b0fca151cecd94111770e5d6ffc9dc2b" # should be set to usdt on the network we're on 
 # moneyfi = "0xd4b0e499b766905e4da6633aa10cef52e0ffb98054ef76a9a97ea80b486782ca" # only for testnet, should be set to real moneyfi on mainnet
 [dev-addresses]
