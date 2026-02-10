@@ -1599,8 +1599,6 @@ interface PanoraSwapParams {
     arg18: number;
     /** Panora router arg19 (u64). */
     arg19: number;
-    /** Panora router arg20 (address). */
-    arg20: string;
 }
 /**
  * Arguments for `glade_flexible::deposit`.

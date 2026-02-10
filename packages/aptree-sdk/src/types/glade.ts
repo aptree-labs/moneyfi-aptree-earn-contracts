@@ -103,9 +103,6 @@ export interface PanoraSwapParams {
 
   /** Panora router arg19 (u64). */
   arg19: number;
-
-  /** Panora router arg20 (address). */
-  arg20: string;
 }
 
 // ─── Glade Flexible Builder Arg Types ────────────────────────────────────────
