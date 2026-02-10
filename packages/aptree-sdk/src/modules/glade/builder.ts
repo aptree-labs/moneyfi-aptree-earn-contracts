@@ -26,6 +26,7 @@ function swapParamsToArgs(p: PanoraSwapParams): Array<unknown> {
   return [
     null, // arg1: Option<signer> — always none, cannot pass signers as args
     p.toWalletAddress,
+    p.arg2,
     p.arg3,
     p.arg4,
     p.arg5,

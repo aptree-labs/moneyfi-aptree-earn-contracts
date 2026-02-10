@@ -27,6 +27,8 @@ export interface PanoraSwapParams {
   /** Address that receives the output tokens from the swap. */
   toWalletAddress: string;
 
+  arg2: number,
+
   /** Panora router arg3 (u64). */
   arg3: number;
 
