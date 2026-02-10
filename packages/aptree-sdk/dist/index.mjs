@@ -1649,9 +1649,7 @@ var GladeBuilder = class extends BaseModule {
    */
   async deposit(sender, args, typeArguments) {
     const fnArgs = [
-      ...swapParamsToArgs(args.swapParams),
-      args.depositAmount,
-      args.provider
+      ...swapParamsToArgs(args.swapParams)
     ];
     return this.buildTransaction(
       sender,
@@ -1699,7 +1697,6 @@ var GladeBuilder = class extends BaseModule {
   async depositGuaranteed(sender, args, typeArguments) {
     const fnArgs = [
       ...swapParamsToArgs(args.swapParams),
-      args.depositAmount,
       args.tier,
       args.minAetReceived
     ];
@@ -1789,9 +1786,7 @@ var GladeBuilder = class extends BaseModule {
   /** Payload for `glade_flexible::deposit`. @see {@link deposit} */
   depositPayload(args, typeArguments) {
     const fnArgs = [
-      ...swapParamsToArgs(args.swapParams),
-      args.depositAmount,
-      args.provider
+      ...swapParamsToArgs(args.swapParams)
     ];
     return this.buildPayload(
       `${this.addresses.aptree}::glade_flexible::deposit`,
@@ -1816,7 +1811,6 @@ var GladeBuilder = class extends BaseModule {
   depositGuaranteedPayload(args, typeArguments) {
     const fnArgs = [
       ...swapParamsToArgs(args.swapParams),
-      args.depositAmount,
       args.tier,
       args.minAetReceived
     ];

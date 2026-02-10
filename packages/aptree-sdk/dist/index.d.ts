@@ -1610,10 +1610,6 @@ interface PanoraSwapParams {
 interface GladeFlexibleDepositArgs {
     /** Panora swap routing parameters. */
     swapParams: PanoraSwapParams;
-    /** Amount of underlying tokens to deposit into the bridge after the swap. */
-    depositAmount: number;
-    /** Bridge provider identifier (e.g. 0 for MoneyFi). */
-    provider: number;
 }
 /**
  * Arguments for `glade_flexible::withdraw`.
@@ -1637,8 +1633,6 @@ interface GladeFlexibleWithdrawArgs {
 interface GladeGuaranteedDepositArgs {
     /** Panora swap routing parameters. */
     swapParams: PanoraSwapParams;
-    /** Amount of underlying tokens to deposit after the swap. */
-    depositAmount: number;
     /** Lock tier (1=Starter, 2=Bronze, 3=Silver, 4=Gold). */
     tier: number;
     /** Minimum AET tokens to receive (slippage protection). */

@@ -98,9 +98,7 @@ export class GladeBuilder extends BaseModule {
     typeArguments: string[],
   ): Promise<SimpleTransaction> {
     const fnArgs = [
-      ...swapParamsToArgs(args.swapParams),
-      args.depositAmount,
-      args.provider,
+      ...swapParamsToArgs(args.swapParams)
     ];
 
     return this.buildTransaction(
@@ -161,7 +159,6 @@ export class GladeBuilder extends BaseModule {
   ): Promise<SimpleTransaction> {
     const fnArgs = [
       ...swapParamsToArgs(args.swapParams),
-      args.depositAmount,
       args.tier,
       args.minAetReceived,
     ];
@@ -276,9 +273,7 @@ export class GladeBuilder extends BaseModule {
     typeArguments: string[],
   ): InputEntryFunctionData {
     const fnArgs = [
-      ...swapParamsToArgs(args.swapParams),
-      args.depositAmount,
-      args.provider,
+      ...swapParamsToArgs(args.swapParams)
     ];
     return this.buildPayload(
       `${this.addresses.aptree}::glade_flexible::deposit`,
@@ -311,7 +306,6 @@ export class GladeBuilder extends BaseModule {
   ): InputEntryFunctionData {
     const fnArgs = [
       ...swapParamsToArgs(args.swapParams),
-      args.depositAmount,
       args.tier,
       args.minAetReceived,
     ];
