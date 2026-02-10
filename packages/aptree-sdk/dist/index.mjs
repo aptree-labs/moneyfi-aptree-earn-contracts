@@ -1609,7 +1609,7 @@ var MockVaultModule = class extends BaseModule {
 // src/modules/glade/builder.ts
 function swapParamsToArgs(p) {
   return [
-    [],
+    null,
     // arg1: Option<signer> — always none, cannot pass signers as args
     p.toWalletAddress,
     p.arg3,
@@ -1622,10 +1622,10 @@ function swapParamsToArgs(p) {
     p.arg10,
     p.faAddresses,
     p.arg12,
-    p.arg13 ?? [],
+    p.arg13 ?? null,
     // Option wrapping handled by the SDK
     p.arg14,
-    p.arg15 ?? [],
+    p.arg15 ?? null,
     // Option wrapping handled by the SDK
     p.arg16,
     p.fromTokenAmounts,
