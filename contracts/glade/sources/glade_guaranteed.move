@@ -5,6 +5,9 @@ module aptree::glade_guaranteed {
     use aptree::GuaranteedYieldLocking::withdraw_emergency_guaranteed as emergency_unlock;
     use aptree::swap_helpers::swap;
 
+    /// Amount is too low i.e ZERO
+    const EAMOUNT_TOO_LOW: u64 = 1001;
+
     public entry fun deposit_guaranteed<fromTokenAddress, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22, T23, T24, T25, T26, T27, T28, T29, T30, toTokenAddress>(
         user: &signer,
         arg1: 0x1::option::Option<signer>,
@@ -27,11 +30,10 @@ module aptree::glade_guaranteed {
         arg18: u64,
         arg19: u64,
         arg20: address,
-        deposit_amount: u64,
         tier: u8,
         min_aet_received: u64
     ) {
-        swap<fromTokenAddress, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22, T23, T24, T25, T26, T27, T28, T29, T30, toTokenAddress>(
+        let result = swap<fromTokenAddress, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22, T23, T24, T25, T26, T27, T28, T29, T30, toTokenAddress>(
             user,
             arg1,
             to_wallet_address,
@@ -55,7 +57,11 @@ module aptree::glade_guaranteed {
             arg20
         );
 
-        deposit(user, deposit_amount, tier, min_aet_received);
+        let extracted_amount = result.extract();
+
+        assert!(extracted_amount > 0, EAMOUNT_TOO_LOW);
+
+        deposit(user, extracted_amount, tier, min_aet_received);
     }
 
     public entry fun unlock_guaranteed<fromTokenAddress, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22, T23, T24, T25, T26, T27, T28, T29, T30, toTokenAddress>(

@@ -4,6 +4,9 @@ module aptree::glade_flexible {
     use aptree::bridge::withdraw as withdraw_deposit;
     use aptree::swap_helpers::swap;
 
+    /// Amount is too low i.e ZERO
+    const EAMOUNT_TOO_LOW: u64 = 1001;
+
     public entry fun deposit<fromTokenAddress, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22, T23, T24, T25, T26, T27, T28, T29, T30, toTokenAddress>(
         user: &signer,
         arg1: 0x1::option::Option<signer>,
@@ -25,11 +28,9 @@ module aptree::glade_flexible {
         from_token_amounts: vector<u64>, // deduct sum of this vector from the user's wallet
         arg18: u64,
         arg19: u64,
-        arg20: address,
-        deposit_amount: u64,
-        provider: u64
+        arg20: address
     ) {
-        swap<fromTokenAddress, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22, T23, T24, T25, T26, T27, T28, T29, T30, toTokenAddress>(
+        let to_amount = swap<fromTokenAddress, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22, T23, T24, T25, T26, T27, T28, T29, T30, toTokenAddress>(
             user,
             arg1,
             to_wallet_address,
@@ -53,7 +54,11 @@ module aptree::glade_flexible {
             arg20
         );
 
-        bridge_deposit(user, deposit_amount, provider);
+        let extracted_amount = to_amount.extract();
+
+        assert!(extracted_amount > 0, EAMOUNT_TOO_LOW);
+
+        bridge_deposit(user, extracted_amount, 0);
     }
 
     public entry fun withdraw<fromTokenAddress, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22, T23, T24, T25, T26, T27, T28, T29, T30, toTokenAddress>(
@@ -132,9 +137,8 @@ module aptree::glade_flexible {
         arg19: u64,
         arg20: address,
         withdrawal_amount: u64,
-        min_share_price: u128,
+        min_share_price: u128
     ) {
-
         aptree::bridge::request_and_withdraw(user, withdrawal_amount, min_share_price);
 
         swap<fromTokenAddress, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22, T23, T24, T25, T26, T27, T28, T29, T30, toTokenAddress>(

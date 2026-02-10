@@ -16,7 +16,7 @@ module aptree::swap_helpers {
     // Main function for executing panora swap operations (Note - don't change order of the arguments/type arguments)
     // fromTokenAddress and toTokenAddress are token types so only compatible with coins. In case of FA, 0x1::string::String is sent
     // Use T23, T24, T25 for your type arguments, if required as per your contract
-    public entry fun swap<fromTokenAddress, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22, T23, T24, T25, T26, T27, T28, T29, T30, toTokenAddress>(
+    public fun swap<fromTokenAddress, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22, T23, T24, T25, T26, T27, T28, T29, T30, toTokenAddress>(
         arg0: &signer,
         arg1: 0x1::option::Option<signer>,
         to_wallet_address: address,
@@ -39,15 +39,12 @@ module aptree::swap_helpers {
         arg19: u64,
         arg20: address
         // Additional arguments can be appended here, if required for your contract
-    ) {
+    ): Option<u64> {
         // Calculate total input amount to be passed in the router function
         let total_from_token_amount = 0;
-        vector::for_each(
-            from_token_amounts,
-            |e| {
-                total_from_token_amount = total_from_token_amount + e;
-            }
-        );
+        from_token_amounts.for_each(|e| {
+            total_from_token_amount += e;
+        });
 
         // Determine asset type (Coin / FA) and extract the respective token according to the function payload
         let (from_token_coin, from_token_fa) =
@@ -104,11 +101,26 @@ module aptree::swap_helpers {
         check_and_deposit_fa_opt(arg0, fa_m_left);
         check_and_deposit_coin_opt<fromTokenAddress>(arg0, coin_m_left);
 
-        // Checking and depositing the returned token(coin/fa)
-        check_and_deposit_fa_to_address_opt(to_wallet_address, fa_m_out);
-        check_and_deposit_coin_to_address_opt<toTokenAddress>(
-            to_wallet_address, coin_m_out
-        );
+        let total_to_amount: u64 = 0;
+
+        if (fa_m_out.is_some()) {
+            let fa = fa_m_out.extract();
+            let value = fungible_asset::amount(&fa);
+            total_to_amount += value;
+            primary_fungible_store_deposit_helper(to_wallet_address, fa);
+        };
+        fa_m_out.destroy_none();
+
+        if (coin_m_out.is_some()) {
+            let coin = coin_m_out.extract();
+            let coin_fa = coin::coin_to_fungible_asset<toTokenAddress>(coin);
+            let value = fungible_asset::amount(&coin_fa);
+            total_to_amount += value;
+            primary_fungible_store_deposit_helper(to_wallet_address, coin_fa);
+        };
+        coin_m_out.destroy_none();
+
+        option::some(total_to_amount)
     }
 
     // Helper function to deposit FA to the given signer
@@ -142,8 +154,9 @@ module aptree::swap_helpers {
     fun check_and_deposit_coin_opt<X>(
         sender: &signer, coin_opt: Option<coin::Coin<X>>
     ) {
-        if (option::is_some(&coin_opt)) {
+        if (coin_opt.is_some()) {
             let coin = option::extract(&mut coin_opt);
+
             let sender_addr = signer::address_of(sender);
             if (!coin::is_account_registered<X>(sender_addr)) {
                 coin::register<X>(sender);

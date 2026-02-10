@@ -44,33 +44,51 @@ module aptree::GuaranteedYieldLocking {
     const AET_SCALE: u128 = 1_000_000_000;
 
     // Warning threshold for cashback vault (configurable)
-    const CASHBACK_LOW_THRESHOLD: u64 = 10000_00000000; // 10,000 USDT
+    const CASHBACK_LOW_THRESHOLD: u64 = 100_00000000; // 100 USDT
 
     // Deposit guards
     const MAX_POSITIONS_PER_USER: u64 = 50;
-    const DEFAULT_MIN_DEPOSIT: u64 = 1_00000000; // 1 USDT (8 decimals)
+    const DEFAULT_MIN_DEPOSIT: u64 = 1_000000; // 1 USDT (6 decimals)
 
     // ============================================
     // Errors
     // ============================================
 
+    /// Amount must be greater than zero.
     const EZERO_AMOUNT: u64 = 301;
+    /// Tier must be one of the supported tiers.
     const EINVALID_TIER: u64 = 302;
+    /// Position was not found for the given user and id.
     const EPOSITION_NOT_FOUND: u64 = 303;
+    /// Position has not reached its unlock time.
     const EPOSITION_NOT_EXPIRED: u64 = 304;
+    /// Caller is not the admin.
     const ENOT_ADMIN: u64 = 305;
+    /// Deposits are currently disabled.
     const EDEPOSITS_DISABLED: u64 = 306;
+    /// Cashback vault does not have enough balance.
     const EINSUFFICIENT_CASHBACK_VAULT: u64 = 307;
+    /// Account balance is insufficient.
     const EINSUFFICIENT_BALANCE: u64 = 308;
+    /// Position is mature; use the normal unlock flow instead.
     const EUSE_UNLOCK_GUARANTEED: u64 = 309;
+    /// Address must be a non-zero address.
     const EINVALID_ADDRESS: u64 = 310;
+    /// Deposit amount is below the minimum allowed.
     const EBELOW_MINIMUM_DEPOSIT: u64 = 311;
+    /// User has too many active positions.
     const ETOO_MANY_POSITIONS: u64 = 312;
+    /// Max total locked principal would be exceeded.
     const EMAX_LOCKED_EXCEEDED: u64 = 313;
+    /// Caller is not the pending admin.
     const ENOT_PENDING_ADMIN: u64 = 314;
+    /// No pending admin is set.
     const ENO_PENDING_ADMIN: u64 = 315;
+    /// Slippage exceeds the user's minimum expected AET.
     const ESLIPPAGE_EXCEEDED: u64 = 316;
+    /// Position already has a pending unlock.
     const EPOSITION_ALREADY_PENDING: u64 = 317;
+    /// Position does not have a pending unlock.
     const EPOSITION_NOT_PENDING: u64 = 318;
 
     // ============================================
@@ -287,24 +305,24 @@ module aptree::GuaranteedYieldLocking {
     fun init_module(admin: &signer) {
         let (controller_signer, signer_cap) =
             account::create_resource_account(admin, SEED);
-        let (cashback_vault_signer, cashback_vault_cap) =
+        let (_, cashback_vault_cap) =
             account::create_resource_account(admin, CASHBACK_VAULT_SEED);
 
         // Initialize tier yields [unused, starter, bronze, silver, gold]
         let tier_yields = vector::empty<u64>();
         tier_yields.push_back(0);
-        vector::push_back(&mut tier_yields, DEFAULT_YIELD_STARTER_BPS);
-        vector::push_back(&mut tier_yields, DEFAULT_YIELD_BRONZE_BPS);
-        vector::push_back(&mut tier_yields, DEFAULT_YIELD_SILVER_BPS);
-        vector::push_back(&mut tier_yields, DEFAULT_YIELD_GOLD_BPS);
+        tier_yields.push_back(DEFAULT_YIELD_STARTER_BPS);
+        tier_yields.push_back(DEFAULT_YIELD_BRONZE_BPS);
+        tier_yields.push_back(DEFAULT_YIELD_SILVER_BPS);
+        tier_yields.push_back(DEFAULT_YIELD_GOLD_BPS);
 
         // Initialize tier durations [unused, starter, bronze, silver, gold]
         let tier_durations = vector::empty<u64>();
-        vector::push_back(&mut tier_durations, 0);
-        vector::push_back(&mut tier_durations, DURATION_STARTER);
-        vector::push_back(&mut tier_durations, DURATION_BRONZE);
-        vector::push_back(&mut tier_durations, DURATION_SILVER);
-        vector::push_back(&mut tier_durations, DURATION_GOLD);
+        tier_durations.push_back(0);
+        tier_durations.push_back(DURATION_STARTER);
+        tier_durations.push_back(DURATION_BRONZE);
+        tier_durations.push_back(DURATION_SILVER);
+        tier_durations.push_back(DURATION_GOLD);
 
         let config = GuaranteedYieldConfig {
             signer_cap,
@@ -361,8 +379,8 @@ module aptree::GuaranteedYieldLocking {
         let current_time = timestamp::now_seconds();
 
         // Get tier configuration
-        let guaranteed_yield_bps = *vector::borrow(&config.tier_yields_bps, (tier as u64));
-        let duration = *vector::borrow(&config.tier_durations, (tier as u64));
+        let guaranteed_yield_bps = config.tier_yields_bps[(tier as u64)];
+        let duration = config.tier_durations[(tier as u64)];
         let unlock_at = current_time + duration;
 
         // Calculate cashback (use u128 to prevent overflow for large deposits)
@@ -425,7 +443,7 @@ module aptree::GuaranteedYieldLocking {
         // Create position
         let user_positions = borrow_global_mut<UserGuaranteedPositions>(user_addr);
         assert!(
-            vector::length(&user_positions.positions) < MAX_POSITIONS_PER_USER,
+            user_positions.positions.length() < MAX_POSITIONS_PER_USER,
             ETOO_MANY_POSITIONS
         );
         let position_id = user_positions.next_position_id;
@@ -442,12 +460,12 @@ module aptree::GuaranteedYieldLocking {
             unlock_at
         };
 
-        vector::push_back(&mut user_positions.positions, position);
+        user_positions.positions.push_back(position);
 
         // Update global stats
-        config.total_locked_principal = config.total_locked_principal + amount;
-        config.total_aet_held = config.total_aet_held + expected_aet;
-        config.total_cashback_paid = config.total_cashback_paid + cashback;
+        config.total_locked_principal += amount;
+        config.total_aet_held += expected_aet;
+        config.total_cashback_paid += cashback;
 
         // Check if vault is running low
         let new_vault_balance = vault_balance - cashback;
@@ -491,7 +509,7 @@ module aptree::GuaranteedYieldLocking {
         let (found, index) = find_position_index(&user_positions.positions, position_id);
         assert!(found, EPOSITION_NOT_FOUND);
 
-        let position = *vector::borrow(&user_positions.positions, index);
+        let position = user_positions.positions[index];
 
         // Validate unlock time
         assert!(current_time >= position.unlock_at, EPOSITION_NOT_EXPIRED);
@@ -541,15 +559,14 @@ module aptree::GuaranteedYieldLocking {
         };
 
         let user_pending = borrow_global_mut<UserPendingUnlocks>(user_addr);
-        vector::push_back(&mut user_pending.pending, pending_unlock);
+        user_pending.pending.push_back(pending_unlock);
 
         // Update global stats
-        config.total_locked_principal = config.total_locked_principal
-            - position.principal;
-        config.total_aet_held = config.total_aet_held - position.aet_amount;
+        config.total_locked_principal -= position.principal;
+        config.total_aet_held -= position.aet_amount;
 
         // Remove position from active positions
-        vector::swap_remove(&mut user_positions.positions, index);
+        user_positions.positions.swap_remove(index);
     }
 
     /// Complete unlock after off-chain confirmation (step 2 of 2).
@@ -566,7 +583,7 @@ module aptree::GuaranteedYieldLocking {
         let (found, index) = find_pending_index(&user_pending.pending, position_id);
         assert!(found, EPOSITION_NOT_PENDING);
 
-        let pending = *vector::borrow(&user_pending.pending, index);
+        let pending = user_pending.pending[index];
         assert!(!pending.is_emergency, EPOSITION_NOT_PENDING);
 
         let config = borrow_global_mut<GuaranteedYieldConfig>(get_config_address());
@@ -596,8 +613,7 @@ module aptree::GuaranteedYieldLocking {
                 config.treasury,
                 pending.to_treasury
             );
-            config.total_yield_to_treasury = config.total_yield_to_treasury
-                + pending.to_treasury;
+            config.total_yield_to_treasury += pending.to_treasury;
         };
 
         // Calculate protocol P/L
@@ -614,7 +630,7 @@ module aptree::GuaranteedYieldLocking {
             };
 
         // Remove pending unlock
-        vector::swap_remove(&mut user_pending.pending, index);
+        user_pending.pending.swap_remove(index);
 
         emit(
             GuaranteedUnlock {
@@ -676,7 +692,7 @@ module aptree::GuaranteedYieldLocking {
         let (found, index) = find_position_index(&user_positions.positions, position_id);
         assert!(found, EPOSITION_NOT_FOUND);
 
-        let position = *vector::borrow(&user_positions.positions, index);
+        let position = user_positions.positions[index];
 
         // Position must NOT be expired (use request_unlock_guaranteed instead)
         assert!(current_time < position.unlock_at, EUSE_UNLOCK_GUARANTEED);
@@ -733,14 +749,14 @@ module aptree::GuaranteedYieldLocking {
         };
 
         let user_pending = borrow_global_mut<UserPendingUnlocks>(user_addr);
-        vector::push_back(&mut user_pending.pending, pending_unlock);
+        user_pending.pending.push_back(pending_unlock);
 
         // Update global stats
-        config.total_locked_principal = config.total_locked_principal - principal;
-        config.total_aet_held = config.total_aet_held - position.aet_amount;
+        config.total_locked_principal -= principal;
+        config.total_aet_held -= position.aet_amount;
 
         // Remove position from active positions
-        vector::swap_remove(&mut user_positions.positions, index);
+        user_positions.positions.swap_remove(index);
     }
 
     /// Complete emergency unlock after off-chain confirmation (step 2 of 2).
@@ -758,7 +774,7 @@ module aptree::GuaranteedYieldLocking {
         let (found, index) = find_pending_index(&user_pending.pending, position_id);
         assert!(found, EPOSITION_NOT_PENDING);
 
-        let pending = *vector::borrow(&user_pending.pending, index);
+        let pending = user_pending.pending[index];
         assert!(pending.is_emergency, EPOSITION_NOT_PENDING);
 
         let config = borrow_global_mut<GuaranteedYieldConfig>(get_config_address());
@@ -821,7 +837,7 @@ module aptree::GuaranteedYieldLocking {
             } else { 0 };
 
         // Remove pending unlock
-        vector::swap_remove(&mut user_pending.pending, index);
+        user_pending.pending.swap_remove(index);
 
         emit(
             GuaranteedEmergencyUnlock {
@@ -855,8 +871,8 @@ module aptree::GuaranteedYieldLocking {
             EINVALID_TIER
         );
 
-        let old_yield = *vector::borrow(&config.tier_yields_bps, (tier as u64));
-        *vector::borrow_mut(&mut config.tier_yields_bps, (tier as u64)) = new_yield_bps;
+        let old_yield = config.tier_yields_bps[(tier as u64)];
+        *config.tier_yields_bps.borrow_mut((tier as u64)) = new_yield_bps;
 
         emit(
             TierYieldUpdated {
@@ -939,9 +955,9 @@ module aptree::GuaranteedYieldLocking {
     /// Accept admin role (must be called by pending admin)
     public entry fun accept_admin(new_admin: &signer) acquires GuaranteedYieldConfig {
         let config = borrow_global_mut<GuaranteedYieldConfig>(get_config_address());
-        assert!(option::is_some(&config.pending_admin), ENO_PENDING_ADMIN);
+        assert!(config.pending_admin.is_some(), ENO_PENDING_ADMIN);
         assert!(
-            address_of(new_admin) == *option::borrow(&config.pending_admin),
+            address_of(new_admin) == *config.pending_admin.borrow(),
             ENOT_PENDING_ADMIN
         );
 
@@ -1016,7 +1032,7 @@ module aptree::GuaranteedYieldLocking {
         let user_positions = borrow_global<UserGuaranteedPositions>(user);
         let (found, index) = find_position_index(&user_positions.positions, position_id);
         assert!(found, EPOSITION_NOT_FOUND);
-        *vector::borrow(&user_positions.positions, index)
+        user_positions.positions[index]
     }
 
     #[view]
@@ -1027,7 +1043,7 @@ module aptree::GuaranteedYieldLocking {
             EINVALID_TIER
         );
         let config = borrow_global<GuaranteedYieldConfig>(get_config_address());
-        *vector::borrow(&config.tier_yields_bps, (tier as u64))
+        config.tier_yields_bps[(tier as u64)]
     }
 
     #[view]
@@ -1038,7 +1054,7 @@ module aptree::GuaranteedYieldLocking {
             EINVALID_TIER
         );
         let config = borrow_global<GuaranteedYieldConfig>(get_config_address());
-        *vector::borrow(&config.tier_durations, (tier as u64))
+        config.tier_durations[(tier as u64)]
     }
 
     #[view]
@@ -1049,7 +1065,7 @@ module aptree::GuaranteedYieldLocking {
             EINVALID_TIER
         );
         let config = borrow_global<GuaranteedYieldConfig>(get_config_address());
-        let yield_bps = *vector::borrow(&config.tier_yields_bps, (tier as u64));
+        let yield_bps = config.tier_yields_bps[(tier as u64)];
         // Use u128 intermediate to prevent overflow for large deposits
         (((amount as u128) * (yield_bps as u128)) / (BPS_DENOMINATOR as u128)) as u64
     }
@@ -1102,8 +1118,8 @@ module aptree::GuaranteedYieldLocking {
             EINVALID_TIER
         );
         let config = borrow_global<GuaranteedYieldConfig>(get_config_address());
-        let duration = *vector::borrow(&config.tier_durations, (tier as u64));
-        let yield_bps = *vector::borrow(&config.tier_yields_bps, (tier as u64));
+        let duration = config.tier_durations[(tier as u64)];
+        let yield_bps = config.tier_yields_bps[(tier as u64)];
         (duration, yield_bps)
     }
 
@@ -1137,7 +1153,7 @@ module aptree::GuaranteedYieldLocking {
             return (0, 0, 0)
         };
 
-        let position = vector::borrow(&user_positions.positions, index);
+        let position = user_positions.positions.borrow(index);
         let share_price = MoneyFiBridge::get_lp_price();
 
         let current_value = ((position.aet_amount as u128) * share_price / AET_SCALE) as u64;
@@ -1192,15 +1208,15 @@ module aptree::GuaranteedYieldLocking {
     fun find_position_index(
         positions: &vector<GuaranteedLockPosition>, position_id: u64
     ): (bool, u64) {
-        let len = vector::length(positions);
+        let len = positions.length();
         let i = 0;
 
         while (i < len) {
-            let position = vector::borrow(positions, i);
+            let position = positions.borrow(i);
             if (position.position_id == position_id) {
                 return (true, i)
             };
-            i = i + 1;
+            i += 1;
         };
 
         (false, 0)
@@ -1209,15 +1225,15 @@ module aptree::GuaranteedYieldLocking {
     fun find_pending_index(
         pending: &vector<PendingUnlock>, position_id: u64
     ): (bool, u64) {
-        let len = vector::length(pending);
+        let len = pending.length();
         let i = 0;
 
         while (i < len) {
-            let p = vector::borrow(pending, i);
+            let p = pending.borrow(i);
             if (p.position.position_id == position_id) {
                 return (true, i)
             };
-            i = i + 1;
+            i += 1;
         };
 
         (false, 0)
