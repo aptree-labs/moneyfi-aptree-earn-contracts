@@ -24,7 +24,7 @@ import type {
  */
 function swapParamsToArgs(p: PanoraSwapParams): Array<unknown> {
   return [
-    [], // arg1: Option<signer> — always none, cannot pass signers as args
+    null, // arg1: Option<signer> — always none, cannot pass signers as args
     p.toWalletAddress,
     p.arg3,
     p.arg4,
@@ -36,9 +36,9 @@ function swapParamsToArgs(p: PanoraSwapParams): Array<unknown> {
     p.arg10,
     p.faAddresses,
     p.arg12,
-    p.arg13 ?? [], // Option wrapping handled by the SDK
+    p.arg13 ?? null, // Option wrapping handled by the SDK
     p.arg14,
-    p.arg15 ?? [], // Option wrapping handled by the SDK
+    p.arg15 ?? null, // Option wrapping handled by the SDK
     p.arg16,
     p.fromTokenAmounts,
     p.arg18,
