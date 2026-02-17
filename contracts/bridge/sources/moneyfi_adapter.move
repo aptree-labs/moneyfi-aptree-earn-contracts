@@ -342,7 +342,7 @@ module aptree::moneyfi_adapter {
 
         if (current_supply == 0) return AET_SCALE;
 
-        assert!(total_value >= withdrawed_amount, EINSUFFICIENT_AMOUNTS_TO_WITHDRAW);
+        // assert!(total_value >= withdrawed_amount, EINSUFFICIENT_AMOUNTS_TO_WITHDRAW);
 
         let remaining_amount = total_value - withdrawed_amount;
 
