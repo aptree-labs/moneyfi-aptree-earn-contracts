@@ -13,6 +13,7 @@ module aptree::moneyfi_adapter {
     use aptos_framework::primary_fungible_store;
     use aptos_framework::timestamp;
     use moneyfi::vault;
+    use moneyfi::wallet_account;
     #[test_only]
     use aptos_std::debug;
 
@@ -333,23 +334,22 @@ module aptree::moneyfi_adapter {
 
     fun get_share_price(asset: Object<Metadata>): u128 {
         let reserve_address = account::create_resource_address(&@aptree, RESERVE);
-        let total_value = vault::estimate_total_fund_value(reserve_address, asset) as u128;
-        let metadata = get_metadata(reserve_address);
-        let withdrawal_metadata = get_withdrawal_metadata(reserve_address);
+        let wallet_id = wallet_account::get_wallet_id_by_address(reserve_address);
 
-        let withdrawed_amount = *fungible_asset::supply(withdrawal_metadata).borrow();
+        let total_value = (vault::estimate_total_fund_value(reserve_address, asset) as u128);
+        let metadata = get_metadata(reserve_address);
+
         let current_supply = *fungible_asset::supply(metadata).borrow();
 
         if (current_supply == 0) return AET_SCALE;
 
-        assert!(total_value >= withdrawed_amount, EINSUFFICIENT_AMOUNTS_TO_WITHDRAW);
-        let remaining_amount = total_value;
+        let (requested_amount, _available_amount, _is_successful) =
+            wallet_account::get_withdrawal_state(wallet_id, asset);
+        let withdrawed_amount = (requested_amount as u128);
 
-        if (total_value <= withdrawed_amount){
-            remaining_amount = total_value
-        }else{
-            remaining_amount = total_value - withdrawed_amount
-        };
+        assert!(total_value >= withdrawed_amount, EINSUFFICIENT_AMOUNTS_TO_WITHDRAW);
+
+        let remaining_amount = total_value - withdrawed_amount;
 
         let price = (remaining_amount * AET_SCALE) / current_supply;
 
