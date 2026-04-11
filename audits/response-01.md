@@ -28,9 +28,7 @@ Fixes derived from the audit were published to aptos mainnet in:
 - **Result:** success
 
 All remediation described in this document lives on the `audit-01` branch
-at commit `d7f34d9` (`fix: audit responses`) and
-has not yet been deployed to mainnet. The fixes will land in a follow-up
-`publish_package_txn` for the `bridge` package.
+at commit `d7f34d9` (`fix: audit responses`)
 
 ## Preamble
 
