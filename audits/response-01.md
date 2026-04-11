@@ -28,11 +28,9 @@ commit and is in scope for the response below.
 ## Scope of the fixes
 
 All remediation described in this document lives on the `audit-01` branch
-and has not yet been deployed to mainnet. The fixes will land in a
-follow-up `publish_package_txn` for the `bridge` package (and a separate
-publish for `GuaranteedYieldLocking` if the guarded-deposit changes end up
-touching that module). Commit hash for the fixes: **_pending commit on
-`audit-01` — will be filled in before redeployment._**
+at commit `d7f34d9` (`fix: audit responses`) and
+has not yet been deployed to mainnet. The fixes will land in a follow-up
+`publish_package_txn` for the `bridge` package.
 
 ## Preamble
 
