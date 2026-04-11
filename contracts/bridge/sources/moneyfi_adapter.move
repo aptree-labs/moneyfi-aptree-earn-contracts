@@ -158,6 +158,7 @@ module aptree::moneyfi_adapter {
         let share_price = get_share_price(token);
         assert!(share_price > 0, ELPMINT_FAILED);
         let lp_amount = (((amount as u128) * AET_SCALE) / share_price) as u64;
+        assert!(lp_amount > 0, ELPMINT_FAILED);
 
         let controller_address = account::create_resource_address(&@aptree, SEED);
         let reserve_address = account::create_resource_address(&@aptree, RESERVE);
@@ -347,11 +348,19 @@ module aptree::moneyfi_adapter {
             wallet_account::get_withdrawal_state(wallet_id, asset);
         let withdrawed_amount = (requested_amount as u128);
 
-        assert!(total_value >= withdrawed_amount, EINSUFFICIENT_AMOUNTS_TO_WITHDRAW);
-
-        let remaining_amount = total_value - withdrawed_amount;
+        let remaining_amount = if (total_value >= withdrawed_amount) {
+            total_value - withdrawed_amount
+        } else { 0 };
 
         let price = (remaining_amount * AET_SCALE) / current_supply;
+
+        // Centralized guard: every dependant of share price aborts cleanly when
+        // the vault is underwater. This blocks deposits and withdrawal requests
+        // through the bridge AND every contract that calls `get_lp_price()`,
+        // including `GuaranteedYieldLocking`. Settling already-pending
+        // withdrawals via `withdraw_fungible` is unaffected (it doesn't read
+        // share price), so funds in flight can still complete.
+        assert!(price > 0, EINSUFFICIENT_AMOUNTS_TO_WITHDRAW);
 
         price
 
