@@ -4,8 +4,15 @@
 |-------|-------|
 | **Status** | Implementation |
 | **Created** | 2026-02-04 |
+| **Last updated** | 2026-04-11 (post audit-01) |
 | **Authors** | APTree Labs |
 | **Depends On** | RFC-001 |
+| **Audit** | [KannAudits Report 01](../audits/report-01.md) → [Response 01](../audits/response-01.md) |
+
+> **Note:** This RFC supersedes RFC-002 (Time-Locked Deposits), which was
+> removed from the repo during `audit-01` remediation. All "locking"
+> language in this repo now refers to the guaranteed-yield product
+> described below.
 
 ---
 
@@ -156,11 +163,13 @@ const DEFAULT_YIELD_GOLD_BPS: u64 = 500;
 ```move
 /// Configuration for the guaranteed yield system
 struct GuaranteedYieldConfig has key {
-    /// Signer capability for contract operations
+    /// Signer capability for the controller resource account
+    /// (custodies AET for all open positions)
     signer_cap: SignerCapability,
 
-    /// Address of the prefunded vault (for cashback)
-    cashback_vault: address,
+    /// Signer capability for the cashback vault resource account
+    /// (prefunded with USDT for instant cashback)
+    cashback_vault_cap: SignerCapability,
 
     /// Address of the treasury (receives actual yield)
     treasury: address,
@@ -211,7 +220,7 @@ struct GuaranteedLockPosition has store, drop, copy {
     /// Principal amount locked (what user deposited)
     principal: u64,
 
-    /// AET tokens held for this position
+    /// AET tokens custodied by the controller for this position
     aet_amount: u64,
 
     /// Cashback amount that was paid to user
@@ -232,7 +241,38 @@ struct UserGuaranteedPositions has key {
     positions: vector<GuaranteedLockPosition>,
     next_position_id: u64,
 }
+
+/// Persisted state for a withdrawal that has been requested from MoneyFi
+/// but not yet settled. Created during `request_unlock_guaranteed` or
+/// `request_emergency_unlock_guaranteed`; consumed during
+/// `withdraw_guaranteed` or `withdraw_emergency_guaranteed`.
+struct PendingUnlock has store, drop, copy {
+    /// The position being unlocked (kept as a snapshot so the active
+    /// position can be removed immediately at request time)
+    position: GuaranteedLockPosition,
+    /// Amount to withdraw from MoneyFi via phase 2
+    withdrawal_amount: u64,
+    /// Amount of `withdrawal_amount` that will be sent to the user
+    to_user: u64,
+    /// Amount of `withdrawal_amount` that will be sent to the treasury
+    to_treasury: u64,
+    /// Whether this pending entry was created by the emergency path
+    is_emergency: bool,
+}
+
+struct UserPendingUnlocks has key {
+    pending: vector<PendingUnlock>,
+}
 ```
+
+**Custody model.** On deposit, `MoneyFiBridge::deposit` is called with the
+controller's resource-account signer, so the resulting AET is minted to
+the controller's wallet — not the user's. This custody model is what
+structurally prevents the H-01 bypass from [Report 01](../audits/report-01.md):
+users never hold AET for a locked position, so they cannot interact with
+the bridge directly to collapse the lock. It also means that on emergency
+unlock the controller retains any AET corresponding to forfeited yield as
+protocol equity (see §H-02 in the audit response for the rationale).
 
 ---
 
@@ -274,74 +314,105 @@ struct UserGuaranteedPositions has key {
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### 4.2 Unlock Flow
+### 4.2 Unlock Flow (Two-Phase)
+
+RFC-001 §4.3 requires a two-phase withdrawal because the MoneyFi vault
+settles requests asynchronously. The matured-unlock flow therefore splits
+into two separate transactions: phase 1 (`request_unlock_guaranteed`)
+queues the withdrawal with MoneyFi and persists a `PendingUnlock`; phase 2
+(`withdraw_guaranteed`) settles once off-chain confirmation of the MoneyFi
+side has arrived.
+
+#### Phase 1 — `request_unlock_guaranteed(position_id)`
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│              unlock_guaranteed(position_id)                         │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
 │  1. Validate position exists and is owned by caller                 │
-│                                                                     │
 │  2. Validate current_time >= unlock_at                              │
-│                                                                     │
-│  3. Redeem AET from MoneyFi:                                        │
-│     → Request withdrawal for current value                          │
-│     → Complete withdrawal                                           │
-│     → Receive USDT (principal + actual_yield)                       │
-│                                                                     │
-│  4. Calculate actual yield:                                         │
-│     actual_yield = withdrawn_amount - principal                     │
-│                                                                     │
-│  5. Send principal to user                                          │
-│                                                                     │
-│  6. Send actual_yield to treasury                                   │
-│     (Protocol keeps all actual yield since user got guaranteed)     │
-│                                                                     │
-│  7. Delete position                                                 │
-│                                                                     │
-│  8. Emit GuaranteedUnlock event                                     │
-│                                                                     │
+│  3. Validate position has no existing PendingUnlock                 │
+│  4. current_value = aet_amount * share_price / AET_SCALE            │
+│  5. MoneyFiBridge::request(controller_signer, current_value, ...)   │
+│     (aborts cleanly if vault is underwater — H-03 guard)            │
+│  6. Compute to_user / to_treasury split:                            │
+│        to_user     = MIN(current_value, principal)                  │
+│        to_treasury = MAX(0, current_value - principal)              │
+│     (protocol keeps any yield above principal)                      │
+│  7. Push PendingUnlock { withdrawal_amount = current_value, ... }   │
+│  8. Update global stats, swap_remove the position from              │
+│     UserGuaranteedPositions                                         │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### 4.3 Emergency Unlock Flow (with Cashback Clawback)
+#### Phase 2 — `withdraw_guaranteed(position_id)`
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│         emergency_unlock_guaranteed(position_id)                    │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
+│  1. Look up PendingUnlock by position_id; assert not emergency      │
+│  2. MoneyFiBridge::withdraw(controller_signer, withdrawal_amount)   │
+│     (phase 2 does not read share price, so it settles even if the   │
+│      vault is underwater)                                           │
+│  3. Transfer to_user to the user                                    │
+│  4. Transfer to_treasury to the configured treasury                 │
+│  5. Remove the PendingUnlock entry                                  │
+│  6. Emit GuaranteedUnlock event                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### 4.3 Emergency Unlock Flow (with Cashback Clawback, Two-Phase)
+
+Early exits follow the same two-phase pattern, with one wrinkle: the
+protocol claws back the upfront cashback from the user's payout and
+treats any yield above principal as forfeited to the protocol.
+
+#### Phase 1 — `request_emergency_unlock_guaranteed(position_id)`
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
 │  1. Validate position exists and is NOT expired                     │
-│     (if expired, use unlock_guaranteed instead)                     │
-│                                                                     │
-│  2. Calculate current AET value at share price                      │
-│                                                                     │
-│  3. base_payout = MIN(principal, current_value)                     │
+│     (if expired, use request_unlock_guaranteed instead)             │
+│  2. Validate no existing PendingUnlock for this position            │
+│  3. current_value = aet_amount * share_price / AET_SCALE            │
+│     (underwater vault aborts cleanly — H-03 guard)                  │
+│  4. base_payout = MIN(principal, current_value)                     │
 │     - Caps at principal (protocol keeps all yield above principal)  │
-│                                                                     │
-│  4. Clawback cashback: payout = MAX(0, base_payout - cashback_paid) │
+│  5. cashback_clawback = MIN(base_payout, cashback_paid)             │
+│     payout            = base_payout - cashback_clawback             │
 │     - Protocol deducts the upfront cashback from user's payout      │
 │     - If base_payout < cashback: user gets 0, protocol recovers    │
 │       only what's available                                         │
-│                                                                     │
-│  5. Withdraw base_payout from MoneyFi                               │
-│     (forfeited yield above principal stays in pool)                 │
-│                                                                     │
-│  6. Transfer payout to user                                         │
-│  7. Transfer (base_payout - payout) to treasury (cashback recovery) │
-│                                                                     │
-│  8. Delete position, update global stats                            │
-│                                                                     │
-│  9. Emit GuaranteedEmergencyUnlock event                            │
-│                                                                     │
-│  EXAMPLES:                                                          │
-│   cv=1200, p=1000, cb=50: payout=950, treasury=50, yield stays=200  │
-│   cv=1000, p=1000, cb=50: payout=950, treasury=50                   │
-│   cv=900,  p=1000, cb=50: payout=850, treasury=50                   │
-│   cv=30,   p=1000, cb=50: payout=0,   treasury=30 (partial)         │
-│                                                                     │
+│  6. If base_payout > 0:                                             │
+│         MoneyFiBridge::request(controller_signer, base_payout, ...) │
+│     (forfeited yield above principal stays in the pool as AET       │
+│      custodied by the controller)                                   │
+│  7. Push PendingUnlock { withdrawal_amount = base_payout,           │
+│                          to_user = payout,                          │
+│                          to_treasury = cashback_clawback,           │
+│                          is_emergency = true }                      │
+│  8. Update global stats, swap_remove the position                   │
 └─────────────────────────────────────────────────────────────────────┘
+```
+
+#### Phase 2 — `withdraw_emergency_guaranteed(position_id)`
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  1. Look up PendingUnlock; assert is_emergency                      │
+│  2. If withdrawal_amount > 0:                                       │
+│         MoneyFiBridge::withdraw(controller_signer, withdrawal_amt)  │
+│         Transfer to_user to the user                                │
+│         Transfer to_treasury to the treasury                        │
+│  3. Remove the PendingUnlock entry                                  │
+│  4. Emit GuaranteedEmergencyUnlock event                            │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Examples** (unchanged — these still describe the net economic outcome):
+
+```
+cv=1200, p=1000, cb=50: payout=950, treasury=50, yield stays=200
+cv=1000, p=1000, cb=50: payout=950, treasury=50
+cv=900,  p=1000, cb=50: payout=850, treasury=50
+cv=30,   p=1000, cb=50: payout=0,   treasury=30 (partial)
 ```
 
 ### 4.4 Example Walkthrough
@@ -647,8 +718,10 @@ public fun get_min_deposit(): u64
 | Function | Description |
 |----------|-------------|
 | `deposit_guaranteed(amount, tier, min_aet)` | Lock funds, receive instant cashback (min_aet=0 to skip slippage check) |
-| `unlock_guaranteed(position_id)` | Unlock after maturity, receive principal |
-| `emergency_unlock_guaranteed(position_id)` | Emergency early exit, cashback clawed back, yield forfeited |
+| `request_unlock_guaranteed(position_id)` | Phase 1 of matured unlock — queues withdrawal from MoneyFi |
+| `withdraw_guaranteed(position_id)` | Phase 2 of matured unlock — settles principal to user, actual yield to treasury |
+| `request_emergency_unlock_guaranteed(position_id)` | Phase 1 of early exit — queues withdrawal with cashback clawback |
+| `withdraw_emergency_guaranteed(position_id)` | Phase 2 of early exit — settles payout and cashback recovery |
 | `fund_cashback_vault(amount)` | Top up the cashback vault |
 
 ### Admin Functions
@@ -666,19 +739,31 @@ public fun get_min_deposit(): u64
 
 ---
 
-## 11. Comparison with RFC-002 Locking
+## 11. Historical Note: RFC-002
 
-| Feature | RFC-002 (Time-Lock) | RFC-003 (Guaranteed Yield) |
-|---------|---------------------|---------------------------|
-| When user gets yield | At unlock (variable) | Instantly (fixed) |
-| Yield amount | Based on actual MoneyFi | Guaranteed rate |
-| Early withdrawal | Limited % allowed | Not allowed |
-| Emergency unlock | Yes (forfeit yield) | Yes (forfeit yield, cashback clawed back) |
+RFC-002 (Time-Locked Deposits) described an earlier product where users
+custodied AET directly and the locking module was a bookkeeping overlay
+on top of the bridge. The `audit-01` engagement surfaced several
+high-severity issues in that design (bypass via direct bridge calls,
+single-transaction two-phase collapse, forfeited-yield AET left in user
+wallets). Rather than patch that module, we accepted RFC-003 as the
+production design and removed RFC-002 and `contracts/locking` from the
+repo. The architectural differences that made RFC-003 naturally immune
+to those findings are:
+
+| Feature | RFC-002 (removed) | RFC-003 |
+|---------|-------------------|---------|
+| AET custody | User wallet | Controller resource account |
+| Early withdrawal | Tiered caps (2/3/5%) | Emergency unlock with cashback clawback |
+| Two-phase withdrawal | Collapsed into one transaction | Properly split (§4.2, §4.3) |
+| Emergency unlock | Yield forfeited to *user's* wallet | Yield forfeited to *controller* (protocol equity) |
 | Risk bearer | User | Protocol |
-| User receives AET | Yes | No |
 | Admin transfer | Single-step | Two-step (propose + accept) |
-| Circuit breaker | Deposit toggle | Deposit toggle + TVL cap |
-| Complexity | Higher | Lower |
+| Circuit breaker | Deposit toggle | Deposit toggle + TVL cap + per-user position cap |
+
+See [audits/response-01.md](../audits/response-01.md) for the per-finding
+mapping between the RFC-002 vulnerabilities and why they do not apply to
+RFC-003.
 
 ---
 
@@ -687,12 +772,13 @@ public fun get_min_deposit(): u64
 - [x] Add `GuaranteedYieldConfig` struct (with pending_admin, max_total_locked, min_deposit)
 - [x] Add `GuaranteedLockPosition` struct
 - [x] Add `UserGuaranteedPositions` resource
+- [x] Add `PendingUnlock` struct and `UserPendingUnlocks` resource (two-phase withdrawal state)
 - [x] Implement `deposit_guaranteed()` (with circuit breaker, min deposit, max positions, slippage protection)
-- [x] Implement `unlock_guaranteed()`
-- [x] Implement `emergency_unlock_guaranteed()` (with cashback clawback)
+- [x] Implement two-phase matured unlock — `request_unlock_guaranteed()` + `withdraw_guaranteed()`
+- [x] Implement two-phase emergency unlock — `request_emergency_unlock_guaranteed()` + `withdraw_emergency_guaranteed()` (with cashback clawback)
 - [x] Implement `fund_cashback_vault()`
 - [x] Add admin functions (two-step admin transfer, set_max_total_locked, set_min_deposit)
-- [x] Add view functions (including emergency_unlock_preview with clawback)
+- [x] Add view functions (including `get_emergency_unlock_preview` with clawback)
 - [x] Add all events (including admin events + ConfigValueUpdated)
 - [x] Treasury address validation (rejects zero address)
 - [x] Arithmetic overflow protection (u128 intermediate for cashback)
@@ -700,9 +786,11 @@ public fun get_min_deposit(): u64
 - [x] Slippage protection on deposit (min_aet_received param)
 - [x] Write unit tests (43 tests passing)
 - [x] MockVault/MoneyFi switching documentation in Move.toml
+- [x] External security audit — [KannAudits Report 01](../audits/report-01.md) + [response](../audits/response-01.md)
+- [x] Inherit bridge-level hardening from audit-01 (underwater guard, dust guard, `request_and_withdraw` disable)
+- [ ] Admin entry point to cash out controller-owned AET accrued from forfeited-yield emergency unlocks (audit-01 H-02 follow-up)
 - [ ] Write integration tests (deposit → unlock end-to-end)
-- [ ] External security audit
-- [ ] Switch from MockMoneyFiVault to real MoneyFi integration (address TBD)
+- [ ] Switch from MockMoneyFiVault to real MoneyFi integration on redeployment (address TBD)
 
 ---
 

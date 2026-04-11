@@ -21,7 +21,7 @@ module aptree::bridge {
     }
 
     public entry fun deposit(
-        user: &signer, amount: u64, provider: u64 // provider support can come in later
+        user: &signer, amount: u64, _provider: u64 // provider support can come in later
     ) {
         // TODO: may add support for other providers
         moneyfi_adapter::deposit(user, amount);
@@ -36,18 +36,17 @@ module aptree::bridge {
     public entry fun withdraw(
         user: &signer,
         amount: u64,
-        provider: u64 // can come in later will default to moneyfi for now
+        _provider: u64 // can come in later will default to moneyfi for now
         // TODO: with other providers may need to specify a min_amount
     ) {
         moneyfi_adapter::withdraw(user, amount)
     }
 
     public entry fun request_and_withdraw(
-        user: &signer,
-        amount: u64,
-        min_share_price: u128
+        _user: &signer,
+        _amount: u64,
+        _min_share_price: u128
     ) {
-        moneyfi_adapter::request(user, amount, min_share_price);
-        moneyfi_adapter::withdraw(user, amount)
+        abort(EOPERATION_NOT_PERMITTED)
     }
 }
