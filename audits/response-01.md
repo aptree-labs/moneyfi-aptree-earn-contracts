@@ -6,7 +6,16 @@ This document responds to [Findings Report 01](./report-01.md).
 
 ## Scope of what was audited
 
-The audit reviewed the mainnet deployment published in transaction
+The commit of the repo at the time of that deployment was `1e81600`
+(`patch: share price calculation fix`). This is the exact build the auditor
+reviewed for the `bridge` and `moneyfi_adapter` modules, plus the
+`contracts/locking` package that was present in the repo at that commit.
+The `GuaranteedYieldLocking` package was also live in the repo at that
+commit and is in scope for the response below.
+
+## Scope of the fixes
+
+Fixes derived from the audit were published to aptos mainnet in:
 [`0x6251f9d6745c3b777e43adf223b6f3c1754374cfcf941fbadc335f7966fcdb9c`](https://explorer.aptoslabs.com/txn/0x6251f9d6745c3b777e43adf223b6f3c1754374cfcf941fbadc335f7966fcdb9c?network=mainnet).
 
 - **Sender / publisher:** `0x951a31b39db54a4e32af927dce9fae7aa1ad14a1bb73318405ccf6cd5d66b3be`
@@ -17,15 +26,6 @@ The audit reviewed the mainnet deployment published in transaction
   `moneyfi` (`0x97c9ffc7143c5585090f9ade67d19ac95f3b3e7008ed86c73c947637e2862f56`)
 - **Ledger version:** 4837814834
 - **Result:** success
-
-The commit of the repo at the time of that deployment was `1e81600`
-(`patch: share price calculation fix`). This is the exact build the auditor
-reviewed for the `bridge` and `moneyfi_adapter` modules, plus the
-`contracts/locking` package that was present in the repo at that commit.
-The `GuaranteedYieldLocking` package was also live in the repo at that
-commit and is in scope for the response below.
-
-## Scope of the fixes
 
 All remediation described in this document lives on the `audit-01` branch
 at commit `d7f34d9` (`fix: audit responses`) and
