@@ -273,8 +273,10 @@ module aptree::moneyfi_adapter {
         let from_wallet = primary_fungible_store::primary_store(address_of(user), asset);
         fungible_asset::burn_from(&withdrawal_state.burn_ref, from_wallet, amount);
 
-        // this will withdraw all pending requesteed amounts that's available
-        vault::withdraw_requested_amount(&reserve_signer, token);
+        let bal = primary_fungible_store::balance(reserve_address, token);
+        if (bal < amount) {
+            vault::withdraw_requested_amount(&reserve_signer, token);
+        };
 
         primary_fungible_store::transfer<Metadata>(
             &reserve_signer,
