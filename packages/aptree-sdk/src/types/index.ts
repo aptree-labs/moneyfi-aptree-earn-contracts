@@ -50,6 +50,27 @@ export type {
 } from "./guaranteed-yield";
 
 export type {
+  FlexibleTicket,
+  UserFlexibleTickets,
+  FlexiblePendingWithdrawal,
+  UserFlexiblePendingWithdrawals,
+  FlexiblePoolConfig,
+  FlexibleProtocolStats,
+  FlexibleWithdrawalPreview,
+  FlexibleDepositArgs,
+  FlexibleRequestWithdrawArgs,
+  FlexibleCompleteWithdrawArgs,
+  FlexibleSetTargetApyArgs,
+  FlexibleSetPerformanceFeeArgs,
+  FlexibleSetTreasuryArgs,
+  FlexibleSetDepositsEnabledArgs,
+  FlexibleSetMinDepositArgs,
+  FlexibleSetMaxTargetApyArgs,
+  FlexibleSetWithdrawalsEnabledArgs,
+  FlexibleProposeAdminArgs,
+} from "./flexible-yield";
+
+export type {
   MockVaultState,
   DepositorState,
   DepositorStateView,
@@ -65,7 +86,9 @@ export type {
 export type {
   PanoraSwapParams,
   GladeFlexibleDepositArgs,
+  GladeFlexiblePoolDepositArgs,
   GladeFlexibleWithdrawArgs,
+  GladeFlexiblePoolCompleteWithdrawArgs,
   GladeGuaranteedDepositArgs,
   GladeGuaranteedUnlockArgs,
   GladeGuaranteedEmergencyUnlockArgs,

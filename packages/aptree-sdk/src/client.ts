@@ -3,6 +3,7 @@ import { AptreeClientConfig, AptreeAddresses } from "./config";
 import { BridgeModule } from "./modules/bridge";
 import { LockingModule } from "./modules/locking";
 import { GuaranteedYieldModule } from "./modules/guaranteed-yield";
+import { FlexibleYieldModule } from "./modules/flexible-yield";
 import { MockVaultModule } from "./modules/mock-vault";
 import { GladeModule } from "./modules/glade";
 
@@ -13,6 +14,7 @@ import { GladeModule } from "./modules/glade";
  * - {@link AptreeClient.bridge | bridge} — Bridge and MoneyFi adapter interactions.
  * - {@link AptreeClient.locking | locking} — Time-locked deposit positions.
  * - {@link AptreeClient.guaranteedYield | guaranteedYield} — Fixed-rate guaranteed yield locking.
+ * - {@link AptreeClient.flexibleYield | flexibleYield} — Flexible ticketed yield pool.
  * - {@link AptreeClient.glade | glade} — Swap + deposit/withdraw via Panora DEX aggregator.
  * - {@link AptreeClient.mockVault | mockVault} — Mock MoneyFi vault for testing.
  *
@@ -61,6 +63,9 @@ export class AptreeClient {
   /** Guaranteed yield locking contract interactions. */
   readonly guaranteedYield: GuaranteedYieldModule;
 
+  /** Flexible ticketed yield pool interactions. */
+  readonly flexibleYield: FlexibleYieldModule;
+
   /** Glade: swap + deposit/withdraw via Panora DEX aggregator. */
   readonly glade: GladeModule;
 
@@ -80,6 +85,7 @@ export class AptreeClient {
       this.aptos,
       this.addresses,
     );
+    this.flexibleYield = new FlexibleYieldModule(this.aptos, this.addresses);
     this.glade = new GladeModule(this.aptos, this.addresses);
     this.mockVault = new MockVaultModule(this.aptos, this.addresses);
   }

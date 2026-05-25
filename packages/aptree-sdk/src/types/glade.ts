@@ -119,6 +119,19 @@ export interface GladeFlexibleDepositArgs {
 }
 
 /**
+ * Arguments for `glade_flexible::deposit_flexible_pool`.
+ *
+ * Performs a swap via Panora and deposits the resulting underlying token into
+ * the ticketed flexible yield pool.
+ */
+export interface GladeFlexiblePoolDepositArgs {
+  /** Panora swap routing parameters. */
+  swapParams: PanoraSwapParams;
+  /** Minimum internal pool shares to mint. */
+  minPoolShares: number;
+}
+
+/**
  * Arguments for `glade_flexible::withdraw`.
  *
  * Withdraws from the bridge and then performs a swap via Panora (converting
@@ -131,6 +144,19 @@ export interface GladeFlexibleWithdrawArgs {
   withdrawalAmount: number;
   /** Bridge provider identifier. */
   provider: number;
+}
+
+/**
+ * Arguments for `glade_flexible::complete_withdraw_flexible_pool`.
+ *
+ * Completes a pending flexible-pool withdrawal and swaps the received
+ * underlying token to the desired output token.
+ */
+export interface GladeFlexiblePoolCompleteWithdrawArgs {
+  /** Panora swap routing parameters. */
+  swapParams: PanoraSwapParams;
+  /** ID of the pending flexible-pool withdrawal to complete. */
+  pendingId: number;
 }
 
 // ─── Glade Guaranteed Builder Arg Types ──────────────────────────────────────
