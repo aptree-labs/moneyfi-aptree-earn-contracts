@@ -21,6 +21,11 @@ export {
   GuaranteedYieldResources,
 } from "./modules/guaranteed-yield";
 export {
+  FlexibleYieldModule,
+  FlexibleYieldBuilder,
+  FlexibleYieldResources,
+} from "./modules/flexible-yield";
+export {
   MockVaultModule,
   MockVaultBuilder,
   MockVaultResources,

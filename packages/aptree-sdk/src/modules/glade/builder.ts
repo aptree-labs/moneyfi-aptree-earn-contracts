@@ -7,7 +7,9 @@ import { BaseModule } from "../base-module";
 import type {
   PanoraSwapParams,
   GladeFlexibleDepositArgs,
+  GladeFlexiblePoolDepositArgs,
   GladeFlexibleWithdrawArgs,
+  GladeFlexiblePoolCompleteWithdrawArgs,
   GladeGuaranteedDepositArgs,
   GladeGuaranteedUnlockArgs,
   GladeGuaranteedEmergencyUnlockArgs,
@@ -110,6 +112,30 @@ export class GladeBuilder extends BaseModule {
   }
 
   /**
+   * Build a `glade_flexible::deposit_flexible_pool` transaction.
+   *
+   * Swaps from any token to the bridge's underlying token via Panora, then
+   * deposits the result into the ticketed flexible yield pool.
+   */
+  async depositFlexiblePool(
+    sender: AccountAddressInput,
+    args: GladeFlexiblePoolDepositArgs,
+    typeArguments: string[],
+  ): Promise<SimpleTransaction> {
+    const fnArgs = [
+      ...swapParamsToArgs(args.swapParams),
+      args.minPoolShares,
+    ];
+
+    return this.buildTransaction(
+      sender,
+      `${this.addresses.aptree}::glade_flexible::deposit_flexible_pool`,
+      fnArgs as Array<string | number | boolean | Uint8Array>,
+      typeArguments,
+    );
+  }
+
+  /**
    * Build a `glade_flexible::withdraw` transaction.
    *
    * Withdraws from the bridge, then swaps the underlying token to any
@@ -134,6 +160,30 @@ export class GladeBuilder extends BaseModule {
     return this.buildTransaction(
       sender,
       `${this.addresses.aptree}::glade_flexible::withdraw`,
+      fnArgs as Array<string | number | boolean | Uint8Array>,
+      typeArguments,
+    );
+  }
+
+  /**
+   * Build a `glade_flexible::complete_withdraw_flexible_pool` transaction.
+   *
+   * Completes a pending flexible-pool withdrawal, then swaps the received
+   * underlying token through Panora.
+   */
+  async completeWithdrawFlexiblePool(
+    sender: AccountAddressInput,
+    args: GladeFlexiblePoolCompleteWithdrawArgs,
+    typeArguments: string[],
+  ): Promise<SimpleTransaction> {
+    const fnArgs = [
+      ...swapParamsToArgs(args.swapParams),
+      args.pendingId,
+    ];
+
+    return this.buildTransaction(
+      sender,
+      `${this.addresses.aptree}::glade_flexible::complete_withdraw_flexible_pool`,
       fnArgs as Array<string | number | boolean | Uint8Array>,
       typeArguments,
     );
@@ -282,6 +332,22 @@ export class GladeBuilder extends BaseModule {
     );
   }
 
+  /** Payload for `glade_flexible::deposit_flexible_pool`. @see {@link depositFlexiblePool} */
+  depositFlexiblePoolPayload(
+    args: GladeFlexiblePoolDepositArgs,
+    typeArguments: string[],
+  ): InputEntryFunctionData {
+    const fnArgs = [
+      ...swapParamsToArgs(args.swapParams),
+      args.minPoolShares,
+    ];
+    return this.buildPayload(
+      `${this.addresses.aptree}::glade_flexible::deposit_flexible_pool`,
+      fnArgs as Array<string | number | boolean | Uint8Array>,
+      typeArguments,
+    );
+  }
+
   /** Payload for `glade_flexible::withdraw`. @see {@link withdraw} */
   withdrawPayload(
     args: GladeFlexibleWithdrawArgs,
@@ -294,6 +360,22 @@ export class GladeBuilder extends BaseModule {
     ];
     return this.buildPayload(
       `${this.addresses.aptree}::glade_flexible::withdraw`,
+      fnArgs as Array<string | number | boolean | Uint8Array>,
+      typeArguments,
+    );
+  }
+
+  /** Payload for `glade_flexible::complete_withdraw_flexible_pool`. @see {@link completeWithdrawFlexiblePool} */
+  completeWithdrawFlexiblePoolPayload(
+    args: GladeFlexiblePoolCompleteWithdrawArgs,
+    typeArguments: string[],
+  ): InputEntryFunctionData {
+    const fnArgs = [
+      ...swapParamsToArgs(args.swapParams),
+      args.pendingId,
+    ];
+    return this.buildPayload(
+      `${this.addresses.aptree}::glade_flexible::complete_withdraw_flexible_pool`,
       fnArgs as Array<string | number | boolean | Uint8Array>,
       typeArguments,
     );

@@ -24,4 +24,7 @@ local = "../bridge"
 [dependencies.GuaranteedYieldLocking]
 local = "../guaranteed-yield"
 
+[dependencies.FlexibleYieldPool]
+local = "../flexible-yield"
+
 [dev-dependencies]
