@@ -26,6 +26,9 @@ __export(index_exports, {
   BridgeBuilder: () => BridgeBuilder,
   BridgeModule: () => BridgeModule,
   BridgeResources: () => BridgeResources,
+  FlexibleYieldBuilder: () => FlexibleYieldBuilder,
+  FlexibleYieldModule: () => FlexibleYieldModule,
+  FlexibleYieldResources: () => FlexibleYieldResources,
   GUARANTEED_YIELD_DURATIONS: () => GUARANTEED_YIELD_DURATIONS,
   GladeBuilder: () => GladeBuilder,
   GladeModule: () => GladeModule,
@@ -1336,6 +1339,313 @@ var GuaranteedYieldModule = class extends BaseModule {
   }
 };
 
+// src/modules/flexible-yield/builder.ts
+var FlexibleYieldBuilder = class extends BaseModule {
+  async deposit(sender, args) {
+    return this.buildTransaction(
+      sender,
+      `${this.addresses.aptree}::FlexibleYieldPool::deposit`,
+      [args.amount, args.minPoolShares]
+    );
+  }
+  async requestWithdraw(sender, args) {
+    return this.buildTransaction(
+      sender,
+      `${this.addresses.aptree}::FlexibleYieldPool::request_withdraw`,
+      [args.grossAmount, args.minLpPrice]
+    );
+  }
+  async completeWithdraw(sender, args) {
+    return this.buildTransaction(
+      sender,
+      `${this.addresses.aptree}::FlexibleYieldPool::complete_withdraw`,
+      [args.pendingId]
+    );
+  }
+  async setTargetApyBps(sender, args) {
+    return this.buildTransaction(
+      sender,
+      `${this.addresses.aptree}::FlexibleYieldPool::set_target_apy_bps`,
+      [args.newTargetApyBps]
+    );
+  }
+  async setPerformanceFeeBps(sender, args) {
+    return this.buildTransaction(
+      sender,
+      `${this.addresses.aptree}::FlexibleYieldPool::set_performance_fee_bps`,
+      [args.newPerformanceFeeBps]
+    );
+  }
+  async setTreasury(sender, args) {
+    return this.buildTransaction(
+      sender,
+      `${this.addresses.aptree}::FlexibleYieldPool::set_treasury`,
+      [args.newTreasury]
+    );
+  }
+  async setDepositsEnabled(sender, args) {
+    return this.buildTransaction(
+      sender,
+      `${this.addresses.aptree}::FlexibleYieldPool::set_deposits_enabled`,
+      [args.enabled]
+    );
+  }
+  async setMinDeposit(sender, args) {
+    return this.buildTransaction(
+      sender,
+      `${this.addresses.aptree}::FlexibleYieldPool::set_min_deposit`,
+      [args.newMinDeposit]
+    );
+  }
+  async setMaxTargetApyBps(sender, args) {
+    return this.buildTransaction(
+      sender,
+      `${this.addresses.aptree}::FlexibleYieldPool::set_max_target_apy_bps`,
+      [args.newMaxTargetApyBps]
+    );
+  }
+  async setWithdrawalsEnabled(sender, args) {
+    return this.buildTransaction(
+      sender,
+      `${this.addresses.aptree}::FlexibleYieldPool::set_withdrawals_enabled`,
+      [args.enabled]
+    );
+  }
+  async proposeAdmin(sender, args) {
+    return this.buildTransaction(
+      sender,
+      `${this.addresses.aptree}::FlexibleYieldPool::propose_admin`,
+      [args.newAdmin]
+    );
+  }
+  async acceptAdmin(sender) {
+    return this.buildTransaction(
+      sender,
+      `${this.addresses.aptree}::FlexibleYieldPool::accept_admin`,
+      []
+    );
+  }
+  depositPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::FlexibleYieldPool::deposit`,
+      [args.amount, args.minPoolShares]
+    );
+  }
+  requestWithdrawPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::FlexibleYieldPool::request_withdraw`,
+      [args.grossAmount, args.minLpPrice]
+    );
+  }
+  completeWithdrawPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::FlexibleYieldPool::complete_withdraw`,
+      [args.pendingId]
+    );
+  }
+  setTargetApyBpsPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::FlexibleYieldPool::set_target_apy_bps`,
+      [args.newTargetApyBps]
+    );
+  }
+  setPerformanceFeeBpsPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::FlexibleYieldPool::set_performance_fee_bps`,
+      [args.newPerformanceFeeBps]
+    );
+  }
+  setTreasuryPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::FlexibleYieldPool::set_treasury`,
+      [args.newTreasury]
+    );
+  }
+  setDepositsEnabledPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::FlexibleYieldPool::set_deposits_enabled`,
+      [args.enabled]
+    );
+  }
+  setMinDepositPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::FlexibleYieldPool::set_min_deposit`,
+      [args.newMinDeposit]
+    );
+  }
+  setMaxTargetApyBpsPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::FlexibleYieldPool::set_max_target_apy_bps`,
+      [args.newMaxTargetApyBps]
+    );
+  }
+  setWithdrawalsEnabledPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::FlexibleYieldPool::set_withdrawals_enabled`,
+      [args.enabled]
+    );
+  }
+  proposeAdminPayload(args) {
+    return this.buildPayload(
+      `${this.addresses.aptree}::FlexibleYieldPool::propose_admin`,
+      [args.newAdmin]
+    );
+  }
+  acceptAdminPayload() {
+    return this.buildPayload(
+      `${this.addresses.aptree}::FlexibleYieldPool::accept_admin`,
+      []
+    );
+  }
+};
+
+// src/modules/flexible-yield/resources.ts
+var FlexibleYieldResources = class extends BaseModule {
+  async getConfig(address) {
+    return this.getResource(
+      address,
+      `${this.addresses.aptree}::FlexibleYieldPool::FlexiblePoolConfig`
+    );
+  }
+  async getUserTickets(user) {
+    return this.getResource(
+      user,
+      `${this.addresses.aptree}::FlexibleYieldPool::UserFlexibleTickets`
+    );
+  }
+  async getUserPendingWithdrawals(user) {
+    return this.getResource(
+      user,
+      `${this.addresses.aptree}::FlexibleYieldPool::UserPendingWithdrawals`
+    );
+  }
+};
+
+// src/modules/flexible-yield/index.ts
+var FlexibleYieldModule = class extends BaseModule {
+  constructor(aptos, addresses) {
+    super(aptos, addresses);
+    this.builder = new FlexibleYieldBuilder(aptos, addresses);
+    this.resources = new FlexibleYieldResources(aptos, addresses);
+  }
+  async getUserTickets(user) {
+    const [result] = await this.view(
+      `${this.addresses.aptree}::FlexibleYieldPool::get_user_tickets`,
+      [user]
+    );
+    return result;
+  }
+  async getPendingWithdrawals(user) {
+    const [result] = await this.view(
+      `${this.addresses.aptree}::FlexibleYieldPool::get_pending_withdrawals`,
+      [user]
+    );
+    return result;
+  }
+  async getPoolNav() {
+    const [result] = await this.view(
+      `${this.addresses.aptree}::FlexibleYieldPool::get_pool_nav`
+    );
+    return Number(result);
+  }
+  async getPoolValue() {
+    const [result] = await this.view(
+      `${this.addresses.aptree}::FlexibleYieldPool::get_pool_value`
+    );
+    return Number(result);
+  }
+  async getProtocolStats() {
+    const [
+      totalInternalShares,
+      totalAetHeld,
+      totalPrincipal,
+      totalPendingGross,
+      totalFeesCollected,
+      targetApyBps,
+      performanceFeeBps
+    ] = await this.view(
+      `${this.addresses.aptree}::FlexibleYieldPool::get_protocol_stats`
+    );
+    return {
+      totalInternalShares: Number(totalInternalShares),
+      totalAetHeld: Number(totalAetHeld),
+      totalPrincipal: Number(totalPrincipal),
+      totalPendingGross: Number(totalPendingGross),
+      totalFeesCollected: Number(totalFeesCollected),
+      targetApyBps: Number(targetApyBps),
+      performanceFeeBps: Number(performanceFeeBps)
+    };
+  }
+  async previewWithdrawal(user, grossAmount) {
+    const [
+      previewGrossAmount,
+      principalPortion,
+      actualProfit,
+      targetProfit,
+      excessProfit,
+      fee,
+      userReceives,
+      sharesBurned
+    ] = await this.view(
+      `${this.addresses.aptree}::FlexibleYieldPool::preview_withdrawal`,
+      [user, grossAmount]
+    );
+    return {
+      grossAmount: Number(previewGrossAmount),
+      principalPortion: Number(principalPortion),
+      actualProfit: Number(actualProfit),
+      targetProfit: Number(targetProfit),
+      excessProfit: Number(excessProfit),
+      fee: Number(fee),
+      userReceives: Number(userReceives),
+      sharesBurned: Number(sharesBurned)
+    };
+  }
+  async getTreasury() {
+    const [result] = await this.view(
+      `${this.addresses.aptree}::FlexibleYieldPool::get_treasury`
+    );
+    return result;
+  }
+  async areDepositsEnabled() {
+    const [result] = await this.view(
+      `${this.addresses.aptree}::FlexibleYieldPool::are_deposits_enabled`
+    );
+    return result;
+  }
+  async getMinDeposit() {
+    const [result] = await this.view(
+      `${this.addresses.aptree}::FlexibleYieldPool::get_min_deposit`
+    );
+    return Number(result);
+  }
+  async areWithdrawalsEnabled() {
+    const [result] = await this.view(
+      `${this.addresses.aptree}::FlexibleYieldPool::are_withdrawals_enabled`
+    );
+    return result;
+  }
+  async getMaxTargetApyBps() {
+    const [result] = await this.view(
+      `${this.addresses.aptree}::FlexibleYieldPool::get_max_target_apy_bps`
+    );
+    return Number(result);
+  }
+  async getAdmin() {
+    const [result] = await this.view(
+      `${this.addresses.aptree}::FlexibleYieldPool::get_admin`
+    );
+    return result;
+  }
+  /** Returns `null` when no admin transfer is in flight. */
+  async getPendingAdmin() {
+    const [result] = await this.view(
+      `${this.addresses.aptree}::FlexibleYieldPool::get_pending_admin`
+    );
+    return result.vec.length === 0 ? null : result.vec[0];
+  }
+};
+
 // src/modules/mock-vault/builder.ts
 var MockVaultBuilder = class extends BaseModule {
   // ── Core vault entry functions ───────────────────────────────────────────
@@ -1708,6 +2018,24 @@ var GladeBuilder = class extends BaseModule {
     );
   }
   /**
+   * Build a `glade_flexible::deposit_flexible_pool` transaction.
+   *
+   * Swaps from any token to the bridge's underlying token via Panora, then
+   * deposits the result into the ticketed flexible yield pool.
+   */
+  async depositFlexiblePool(sender, args, typeArguments) {
+    const fnArgs = [
+      ...swapParamsToArgs(args.swapParams),
+      args.minPoolShares
+    ];
+    return this.buildTransaction(
+      sender,
+      `${this.addresses.aptree}::glade_flexible::deposit_flexible_pool`,
+      fnArgs,
+      typeArguments
+    );
+  }
+  /**
    * Build a `glade_flexible::withdraw` transaction.
    *
    * Withdraws from the bridge, then swaps the underlying token to any
@@ -1727,6 +2055,24 @@ var GladeBuilder = class extends BaseModule {
     return this.buildTransaction(
       sender,
       `${this.addresses.aptree}::glade_flexible::withdraw`,
+      fnArgs,
+      typeArguments
+    );
+  }
+  /**
+   * Build a `glade_flexible::complete_withdraw_flexible_pool` transaction.
+   *
+   * Completes a pending flexible-pool withdrawal, then swaps the received
+   * underlying token through Panora.
+   */
+  async completeWithdrawFlexiblePool(sender, args, typeArguments) {
+    const fnArgs = [
+      ...swapParamsToArgs(args.swapParams),
+      args.pendingId
+    ];
+    return this.buildTransaction(
+      sender,
+      `${this.addresses.aptree}::glade_flexible::complete_withdraw_flexible_pool`,
       fnArgs,
       typeArguments
     );
@@ -1843,6 +2189,18 @@ var GladeBuilder = class extends BaseModule {
       typeArguments
     );
   }
+  /** Payload for `glade_flexible::deposit_flexible_pool`. @see {@link depositFlexiblePool} */
+  depositFlexiblePoolPayload(args, typeArguments) {
+    const fnArgs = [
+      ...swapParamsToArgs(args.swapParams),
+      args.minPoolShares
+    ];
+    return this.buildPayload(
+      `${this.addresses.aptree}::glade_flexible::deposit_flexible_pool`,
+      fnArgs,
+      typeArguments
+    );
+  }
   /** Payload for `glade_flexible::withdraw`. @see {@link withdraw} */
   withdrawPayload(args, typeArguments) {
     const fnArgs = [
@@ -1852,6 +2210,18 @@ var GladeBuilder = class extends BaseModule {
     ];
     return this.buildPayload(
       `${this.addresses.aptree}::glade_flexible::withdraw`,
+      fnArgs,
+      typeArguments
+    );
+  }
+  /** Payload for `glade_flexible::complete_withdraw_flexible_pool`. @see {@link completeWithdrawFlexiblePool} */
+  completeWithdrawFlexiblePoolPayload(args, typeArguments) {
+    const fnArgs = [
+      ...swapParamsToArgs(args.swapParams),
+      args.pendingId
+    ];
+    return this.buildPayload(
+      `${this.addresses.aptree}::glade_flexible::complete_withdraw_flexible_pool`,
       fnArgs,
       typeArguments
     );
@@ -1923,6 +2293,7 @@ var AptreeClient = class {
       this.aptos,
       this.addresses
     );
+    this.flexibleYield = new FlexibleYieldModule(this.aptos, this.addresses);
     this.glade = new GladeModule(this.aptos, this.addresses);
     this.mockVault = new MockVaultModule(this.aptos, this.addresses);
   }
@@ -1988,6 +2359,9 @@ var GUARANTEED_YIELD_DURATIONS = {
   BridgeBuilder,
   BridgeModule,
   BridgeResources,
+  FlexibleYieldBuilder,
+  FlexibleYieldModule,
+  FlexibleYieldResources,
   GUARANTEED_YIELD_DURATIONS,
   GladeBuilder,
   GladeModule,

@@ -1232,6 +1232,180 @@ declare class GuaranteedYieldModule extends BaseModule {
     getMinDeposit(): Promise<number>;
 }
 
+/** On-chain struct `aptree::FlexibleYieldPool::Ticket`. */
+interface FlexibleTicket {
+    id: string;
+    shares: string;
+    principal: string;
+    entry_nav: string;
+    entry_time: string;
+    target_apy_bps: string;
+}
+/** On-chain resource `aptree::FlexibleYieldPool::UserFlexibleTickets`. */
+interface UserFlexibleTickets {
+    tickets: FlexibleTicket[];
+    next_ticket_id: string;
+    fifo_cursor: string;
+}
+/** On-chain struct `aptree::FlexibleYieldPool::PendingWithdrawal`. */
+interface FlexiblePendingWithdrawal {
+    pending_id: string;
+    gross_amount: string;
+    user_receives: string;
+    fee: string;
+    principal_portion: string;
+    shares_burned: string;
+    requested_at: string;
+}
+/** On-chain resource `aptree::FlexibleYieldPool::UserPendingWithdrawals`. */
+interface UserFlexiblePendingWithdrawals {
+    pending: FlexiblePendingWithdrawal[];
+    next_pending_id: string;
+}
+/** On-chain resource `aptree::FlexibleYieldPool::FlexiblePoolConfig`. */
+interface FlexiblePoolConfig {
+    signer_cap: {
+        account: string;
+    };
+    admin: string;
+    /** Move `Option<address>` — `{ vec: [] }` when none, `{ vec: [address] }` when some. */
+    pending_admin: {
+        vec: [] | [string];
+    };
+    treasury: string;
+    target_apy_bps: string;
+    max_target_apy_bps: string;
+    performance_fee_bps: string;
+    deposits_enabled: boolean;
+    withdrawals_enabled: boolean;
+    min_deposit_amount: string;
+    total_internal_shares: string;
+    total_aet_held: string;
+    total_principal: string;
+    total_pending_gross: string;
+    total_fees_collected: string;
+}
+/** Parsed return type for `get_protocol_stats()`. */
+interface FlexibleProtocolStats {
+    totalInternalShares: number;
+    totalAetHeld: number;
+    totalPrincipal: number;
+    totalPendingGross: number;
+    totalFeesCollected: number;
+    targetApyBps: number;
+    performanceFeeBps: number;
+}
+/** Parsed return type for `preview_withdrawal()`. */
+interface FlexibleWithdrawalPreview {
+    grossAmount: number;
+    principalPortion: number;
+    actualProfit: number;
+    targetProfit: number;
+    excessProfit: number;
+    fee: number;
+    userReceives: number;
+    sharesBurned: number;
+}
+/** Arguments for `FlexibleYieldPool::deposit`. */
+interface FlexibleDepositArgs {
+    amount: number;
+    minPoolShares: number;
+}
+/** Arguments for `FlexibleYieldPool::request_withdraw`. */
+interface FlexibleRequestWithdrawArgs {
+    grossAmount: number;
+    minLpPrice: number;
+}
+/** Arguments for `FlexibleYieldPool::complete_withdraw`. */
+interface FlexibleCompleteWithdrawArgs {
+    pendingId: number;
+}
+/** Arguments for `FlexibleYieldPool::set_target_apy_bps`. */
+interface FlexibleSetTargetApyArgs {
+    newTargetApyBps: number;
+}
+/** Arguments for `FlexibleYieldPool::set_performance_fee_bps`. */
+interface FlexibleSetPerformanceFeeArgs {
+    newPerformanceFeeBps: number;
+}
+/** Arguments for `FlexibleYieldPool::set_treasury`. */
+interface FlexibleSetTreasuryArgs {
+    newTreasury: string;
+}
+/** Arguments for `FlexibleYieldPool::set_deposits_enabled`. */
+interface FlexibleSetDepositsEnabledArgs {
+    enabled: boolean;
+}
+/** Arguments for `FlexibleYieldPool::set_min_deposit`. */
+interface FlexibleSetMinDepositArgs {
+    newMinDeposit: number;
+}
+/** Arguments for `FlexibleYieldPool::set_max_target_apy_bps`. */
+interface FlexibleSetMaxTargetApyArgs {
+    newMaxTargetApyBps: number;
+}
+/** Arguments for `FlexibleYieldPool::set_withdrawals_enabled`. */
+interface FlexibleSetWithdrawalsEnabledArgs {
+    enabled: boolean;
+}
+/** Arguments for `FlexibleYieldPool::propose_admin`. */
+interface FlexibleProposeAdminArgs {
+    newAdmin: string;
+}
+
+declare class FlexibleYieldBuilder extends BaseModule {
+    deposit(sender: AccountAddressInput, args: FlexibleDepositArgs): Promise<SimpleTransaction>;
+    requestWithdraw(sender: AccountAddressInput, args: FlexibleRequestWithdrawArgs): Promise<SimpleTransaction>;
+    completeWithdraw(sender: AccountAddressInput, args: FlexibleCompleteWithdrawArgs): Promise<SimpleTransaction>;
+    setTargetApyBps(sender: AccountAddressInput, args: FlexibleSetTargetApyArgs): Promise<SimpleTransaction>;
+    setPerformanceFeeBps(sender: AccountAddressInput, args: FlexibleSetPerformanceFeeArgs): Promise<SimpleTransaction>;
+    setTreasury(sender: AccountAddressInput, args: FlexibleSetTreasuryArgs): Promise<SimpleTransaction>;
+    setDepositsEnabled(sender: AccountAddressInput, args: FlexibleSetDepositsEnabledArgs): Promise<SimpleTransaction>;
+    setMinDeposit(sender: AccountAddressInput, args: FlexibleSetMinDepositArgs): Promise<SimpleTransaction>;
+    setMaxTargetApyBps(sender: AccountAddressInput, args: FlexibleSetMaxTargetApyArgs): Promise<SimpleTransaction>;
+    setWithdrawalsEnabled(sender: AccountAddressInput, args: FlexibleSetWithdrawalsEnabledArgs): Promise<SimpleTransaction>;
+    proposeAdmin(sender: AccountAddressInput, args: FlexibleProposeAdminArgs): Promise<SimpleTransaction>;
+    acceptAdmin(sender: AccountAddressInput): Promise<SimpleTransaction>;
+    depositPayload(args: FlexibleDepositArgs): InputEntryFunctionData;
+    requestWithdrawPayload(args: FlexibleRequestWithdrawArgs): InputEntryFunctionData;
+    completeWithdrawPayload(args: FlexibleCompleteWithdrawArgs): InputEntryFunctionData;
+    setTargetApyBpsPayload(args: FlexibleSetTargetApyArgs): InputEntryFunctionData;
+    setPerformanceFeeBpsPayload(args: FlexibleSetPerformanceFeeArgs): InputEntryFunctionData;
+    setTreasuryPayload(args: FlexibleSetTreasuryArgs): InputEntryFunctionData;
+    setDepositsEnabledPayload(args: FlexibleSetDepositsEnabledArgs): InputEntryFunctionData;
+    setMinDepositPayload(args: FlexibleSetMinDepositArgs): InputEntryFunctionData;
+    setMaxTargetApyBpsPayload(args: FlexibleSetMaxTargetApyArgs): InputEntryFunctionData;
+    setWithdrawalsEnabledPayload(args: FlexibleSetWithdrawalsEnabledArgs): InputEntryFunctionData;
+    proposeAdminPayload(args: FlexibleProposeAdminArgs): InputEntryFunctionData;
+    acceptAdminPayload(): InputEntryFunctionData;
+}
+
+declare class FlexibleYieldResources extends BaseModule {
+    getConfig(address: AccountAddressInput): Promise<FlexiblePoolConfig>;
+    getUserTickets(user: AccountAddressInput): Promise<UserFlexibleTickets>;
+    getUserPendingWithdrawals(user: AccountAddressInput): Promise<UserFlexiblePendingWithdrawals>;
+}
+
+declare class FlexibleYieldModule extends BaseModule {
+    readonly builder: FlexibleYieldBuilder;
+    readonly resources: FlexibleYieldResources;
+    constructor(aptos: Aptos, addresses: AptreeAddresses);
+    getUserTickets(user: AccountAddressInput): Promise<FlexibleTicket[]>;
+    getPendingWithdrawals(user: AccountAddressInput): Promise<FlexiblePendingWithdrawal[]>;
+    getPoolNav(): Promise<number>;
+    getPoolValue(): Promise<number>;
+    getProtocolStats(): Promise<FlexibleProtocolStats>;
+    previewWithdrawal(user: AccountAddressInput, grossAmount: number): Promise<FlexibleWithdrawalPreview>;
+    getTreasury(): Promise<string>;
+    areDepositsEnabled(): Promise<boolean>;
+    getMinDeposit(): Promise<number>;
+    areWithdrawalsEnabled(): Promise<boolean>;
+    getMaxTargetApyBps(): Promise<number>;
+    getAdmin(): Promise<string>;
+    /** Returns `null` when no admin transfer is in flight. */
+    getPendingAdmin(): Promise<string | null>;
+}
+
 /** On-chain resource `moneyfi_mock::vault::MockVaultState`. */
 interface MockVaultState {
     signer_cap: {
@@ -1611,6 +1785,18 @@ interface GladeFlexibleDepositArgs {
     swapParams: PanoraSwapParams;
 }
 /**
+ * Arguments for `glade_flexible::deposit_flexible_pool`.
+ *
+ * Performs a swap via Panora and deposits the resulting underlying token into
+ * the ticketed flexible yield pool.
+ */
+interface GladeFlexiblePoolDepositArgs {
+    /** Panora swap routing parameters. */
+    swapParams: PanoraSwapParams;
+    /** Minimum internal pool shares to mint. */
+    minPoolShares: number;
+}
+/**
  * Arguments for `glade_flexible::withdraw`.
  *
  * Withdraws from the bridge and then performs a swap via Panora (converting
@@ -1623,6 +1809,18 @@ interface GladeFlexibleWithdrawArgs {
     withdrawalAmount: number;
     /** Bridge provider identifier. */
     provider: number;
+}
+/**
+ * Arguments for `glade_flexible::complete_withdraw_flexible_pool`.
+ *
+ * Completes a pending flexible-pool withdrawal and swaps the received
+ * underlying token to the desired output token.
+ */
+interface GladeFlexiblePoolCompleteWithdrawArgs {
+    /** Panora swap routing parameters. */
+    swapParams: PanoraSwapParams;
+    /** ID of the pending flexible-pool withdrawal to complete. */
+    pendingId: number;
 }
 /**
  * Arguments for `glade_guaranteed::deposit_guaranteed`.
@@ -1722,6 +1920,13 @@ declare class GladeBuilder extends BaseModule {
      */
     deposit(sender: AccountAddressInput, args: GladeFlexibleDepositArgs, typeArguments: string[]): Promise<SimpleTransaction>;
     /**
+     * Build a `glade_flexible::deposit_flexible_pool` transaction.
+     *
+     * Swaps from any token to the bridge's underlying token via Panora, then
+     * deposits the result into the ticketed flexible yield pool.
+     */
+    depositFlexiblePool(sender: AccountAddressInput, args: GladeFlexiblePoolDepositArgs, typeArguments: string[]): Promise<SimpleTransaction>;
+    /**
      * Build a `glade_flexible::withdraw` transaction.
      *
      * Withdraws from the bridge, then swaps the underlying token to any
@@ -1733,6 +1938,13 @@ declare class GladeBuilder extends BaseModule {
      * @returns A built transaction ready for signing.
      */
     withdraw(sender: AccountAddressInput, args: GladeFlexibleWithdrawArgs, typeArguments: string[]): Promise<SimpleTransaction>;
+    /**
+     * Build a `glade_flexible::complete_withdraw_flexible_pool` transaction.
+     *
+     * Completes a pending flexible-pool withdrawal, then swaps the received
+     * underlying token through Panora.
+     */
+    completeWithdrawFlexiblePool(sender: AccountAddressInput, args: GladeFlexiblePoolCompleteWithdrawArgs, typeArguments: string[]): Promise<SimpleTransaction>;
     /**
      * Build a `glade_guaranteed::deposit_guaranteed` transaction.
      *
@@ -1791,8 +2003,12 @@ declare class GladeBuilder extends BaseModule {
     swap(sender: AccountAddressInput, args: SwapArgs, typeArguments: string[]): Promise<SimpleTransaction>;
     /** Payload for `glade_flexible::deposit`. @see {@link deposit} */
     depositPayload(args: GladeFlexibleDepositArgs, typeArguments: string[]): InputEntryFunctionData;
+    /** Payload for `glade_flexible::deposit_flexible_pool`. @see {@link depositFlexiblePool} */
+    depositFlexiblePoolPayload(args: GladeFlexiblePoolDepositArgs, typeArguments: string[]): InputEntryFunctionData;
     /** Payload for `glade_flexible::withdraw`. @see {@link withdraw} */
     withdrawPayload(args: GladeFlexibleWithdrawArgs, typeArguments: string[]): InputEntryFunctionData;
+    /** Payload for `glade_flexible::complete_withdraw_flexible_pool`. @see {@link completeWithdrawFlexiblePool} */
+    completeWithdrawFlexiblePoolPayload(args: GladeFlexiblePoolCompleteWithdrawArgs, typeArguments: string[]): InputEntryFunctionData;
     /** Payload for `glade_guaranteed::deposit_guaranteed`. @see {@link depositGuaranteed} */
     depositGuaranteedPayload(args: GladeGuaranteedDepositArgs, typeArguments: string[]): InputEntryFunctionData;
     /** Payload for `glade_guaranteed::unlock_guaranteed`. @see {@link unlockGuaranteed} */
@@ -1879,6 +2095,7 @@ declare class GladeModule extends BaseModule {
  * - {@link AptreeClient.bridge | bridge} — Bridge and MoneyFi adapter interactions.
  * - {@link AptreeClient.locking | locking} — Time-locked deposit positions.
  * - {@link AptreeClient.guaranteedYield | guaranteedYield} — Fixed-rate guaranteed yield locking.
+ * - {@link AptreeClient.flexibleYield | flexibleYield} — Flexible ticketed yield pool.
  * - {@link AptreeClient.glade | glade} — Swap + deposit/withdraw via Panora DEX aggregator.
  * - {@link AptreeClient.mockVault | mockVault} — Mock MoneyFi vault for testing.
  *
@@ -1922,6 +2139,8 @@ declare class AptreeClient {
     readonly locking: LockingModule;
     /** Guaranteed yield locking contract interactions. */
     readonly guaranteedYield: GuaranteedYieldModule;
+    /** Flexible ticketed yield pool interactions. */
+    readonly flexibleYield: FlexibleYieldModule;
     /** Glade: swap + deposit/withdraw via Panora DEX aggregator. */
     readonly glade: GladeModule;
     /** Mock MoneyFi vault interactions (for testing). */
@@ -1993,4 +2212,4 @@ declare const GUARANTEED_YIELD_DURATIONS: {
     readonly GOLD: 31536000;
 };
 
-export { AET_SCALE, type AddToPositionArgs, type AdminWithdrawCashbackVaultArgs, type AptreeAddresses, AptreeClient, type AptreeClientConfig, BPS_DENOMINATOR, BridgeBuilder, type BridgeDepositArgs, BridgeModule, type BridgeRequestArgs, BridgeResources, type BridgeState, type BridgeWithdrawArgs, type BridgeWithdrawalTokenState, type DepositGuaranteedArgs, type DepositLockedArgs, type DepositorState, type DepositorStateView, type EmergencyUnlockArgs, type EmergencyUnlockPreview, type FundCashbackVaultArgs, GUARANTEED_YIELD_DURATIONS, GladeBuilder, type GladeFlexibleDepositArgs, type GladeFlexibleWithdrawArgs, type GladeGuaranteedDepositArgs, type GladeGuaranteedEmergencyUnlockArgs, type GladeGuaranteedUnlockArgs, GladeModule, type GuaranteedEmergencyUnlockPreview, type GuaranteedLockPosition, type GuaranteedTierConfig, GuaranteedYieldBuilder, GuaranteedYieldModule, GuaranteedYieldResources, GuaranteedYieldTier, LOCKING_DURATIONS, type LockConfig, type LockPosition, LockingBuilder, LockingModule, LockingResources, LockingTier, MockVaultBuilder, type MockVaultDepositArgs, MockVaultModule, type MockVaultRequestWithdrawArgs, MockVaultResources, type MockVaultState, type MockVaultWithdrawRequestedArgs, type MoneyFiAdapterDepositArgs, type MoneyFiAdapterRequestArgs, type MoneyFiAdapterWithdrawArgs, type MoneyFiBridgeState, type MoneyFiReserveState, PRECISION, type PanoraSwapParams, type ProposeAdminArgs, type ProtocolStats, type RequestEmergencyUnlockGuaranteedArgs, type RequestUnlockGuaranteedArgs, SEEDS, type SetDepositsEnabledArgs, type SetLocksEnabledArgs, type SetMaxTotalLockedArgs, type SetMinDepositArgs, type SetTierLimitArgs, type SetTierYieldArgs, type SetTotalDepositsArgs, type SetTreasuryArgs, type SetYieldMultiplierArgs, type SimulateLossArgs, type SimulateYieldArgs, type SwapArgs, TESTNET_ADDRESSES, type TierConfig, type UserGuaranteedPositions, type UserLockPositions, type WithdrawEarlyArgs, type WithdrawEmergencyGuaranteedArgs, type WithdrawGuaranteedArgs, type WithdrawUnlockedArgs };
+export { AET_SCALE, type AddToPositionArgs, type AdminWithdrawCashbackVaultArgs, type AptreeAddresses, AptreeClient, type AptreeClientConfig, BPS_DENOMINATOR, BridgeBuilder, type BridgeDepositArgs, BridgeModule, type BridgeRequestArgs, BridgeResources, type BridgeState, type BridgeWithdrawArgs, type BridgeWithdrawalTokenState, type DepositGuaranteedArgs, type DepositLockedArgs, type DepositorState, type DepositorStateView, type EmergencyUnlockArgs, type EmergencyUnlockPreview, type FlexibleCompleteWithdrawArgs, type FlexibleDepositArgs, type FlexiblePendingWithdrawal, type FlexiblePoolConfig, type FlexibleProposeAdminArgs, type FlexibleProtocolStats, type FlexibleRequestWithdrawArgs, type FlexibleSetDepositsEnabledArgs, type FlexibleSetMaxTargetApyArgs, type FlexibleSetMinDepositArgs, type FlexibleSetPerformanceFeeArgs, type FlexibleSetTargetApyArgs, type FlexibleSetTreasuryArgs, type FlexibleSetWithdrawalsEnabledArgs, type FlexibleTicket, type FlexibleWithdrawalPreview, FlexibleYieldBuilder, FlexibleYieldModule, FlexibleYieldResources, type FundCashbackVaultArgs, GUARANTEED_YIELD_DURATIONS, GladeBuilder, type GladeFlexibleDepositArgs, type GladeFlexiblePoolCompleteWithdrawArgs, type GladeFlexiblePoolDepositArgs, type GladeFlexibleWithdrawArgs, type GladeGuaranteedDepositArgs, type GladeGuaranteedEmergencyUnlockArgs, type GladeGuaranteedUnlockArgs, GladeModule, type GuaranteedEmergencyUnlockPreview, type GuaranteedLockPosition, type GuaranteedTierConfig, GuaranteedYieldBuilder, GuaranteedYieldModule, GuaranteedYieldResources, GuaranteedYieldTier, LOCKING_DURATIONS, type LockConfig, type LockPosition, LockingBuilder, LockingModule, LockingResources, LockingTier, MockVaultBuilder, type MockVaultDepositArgs, MockVaultModule, type MockVaultRequestWithdrawArgs, MockVaultResources, type MockVaultState, type MockVaultWithdrawRequestedArgs, type MoneyFiAdapterDepositArgs, type MoneyFiAdapterRequestArgs, type MoneyFiAdapterWithdrawArgs, type MoneyFiBridgeState, type MoneyFiReserveState, PRECISION, type PanoraSwapParams, type ProposeAdminArgs, type ProtocolStats, type RequestEmergencyUnlockGuaranteedArgs, type RequestUnlockGuaranteedArgs, SEEDS, type SetDepositsEnabledArgs, type SetLocksEnabledArgs, type SetMaxTotalLockedArgs, type SetMinDepositArgs, type SetTierLimitArgs, type SetTierYieldArgs, type SetTotalDepositsArgs, type SetTreasuryArgs, type SetYieldMultiplierArgs, type SimulateLossArgs, type SimulateYieldArgs, type SwapArgs, TESTNET_ADDRESSES, type TierConfig, type UserFlexiblePendingWithdrawals, type UserFlexibleTickets, type UserGuaranteedPositions, type UserLockPositions, type WithdrawEarlyArgs, type WithdrawEmergencyGuaranteedArgs, type WithdrawGuaranteedArgs, type WithdrawUnlockedArgs };
