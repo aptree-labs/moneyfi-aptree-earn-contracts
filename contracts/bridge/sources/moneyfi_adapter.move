@@ -255,6 +255,64 @@ module aptree::moneyfi_adapter {
 
     }
 
+    public entry fun normalise_pool(admin: &signer, token: Object<Metadata>, amount: u64, target: address) acquires BridgeState {
+        abort 1;
+        assert!(address_of(admin) == @aptree, ECLAIMS_DO_NOT_EXIST);
+        let controller_address = account::create_resource_address(&@aptree, SEED);
+        let share_price = get_share_price(token);
+        assert!(share_price > 0, ELP_WITHDRAWL_FAILED);
+
+        let bridge_state = borrow_global<BridgeState>(controller_address);
+
+        let reserve_signer =
+        account::create_signer_with_capability(&bridge_state.reserve_capability);
+            
+        vault::request_withdraw(&reserve_signer, token, amount);
+
+        emit(
+            RequestWithdrawal {
+                token: @moneyfi_bridge_asset,
+                share_price,
+                user: target,
+                amount,
+                share_tokens_burnt: 0,
+                timestamp: timestamp::now_microseconds()
+            }
+        )
+    }
+
+
+    public entry fun complete_normalisation(admin: &signer, token: Object<Metadata>, amount: u64, target: address) acquires BridgeState {
+        abort 1;
+        assert!(address_of(admin) == @aptree, ECLAIMS_DO_NOT_EXIST);
+        let controller_address = account::create_resource_address(&@aptree, SEED);
+
+        let bridge_state = borrow_global<BridgeState>(controller_address);
+
+        let reserve_signer =
+            account::create_signer_with_capability(&bridge_state.reserve_capability);
+
+
+        vault::withdraw_requested_amount(&reserve_signer, token);
+
+        primary_fungible_store::transfer<Metadata>(
+            &reserve_signer,
+            token,
+            target,
+            amount
+        );
+
+
+        emit(
+            Withdraw {
+                amount,
+                user: target,
+                token: @moneyfi_bridge_asset,
+                timestamp: timestamp::now_microseconds()
+            }
+        )
+    }
+
     fun withdraw_fungible(
         user: &signer, token: Object<Metadata>, amount: u64
     ) acquires BridgeState, BridgeWithdrawalTokenState {
