@@ -4,6 +4,7 @@ module aptree::moneyfi_adapter {
     use std::option::Option;
     use std::signer::address_of;
     use std::string;
+    use aptos_std::table::{Self, Table};
     use aptos_framework::account;
     use aptos_framework::account::SignerCapability;
     use aptos_framework::event::emit;
@@ -57,6 +58,23 @@ module aptree::moneyfi_adapter {
     const EINVALID_MONITOR_BPS: u64 = 115;
     const EINVALID_MONITOR_WINDOW: u64 = 116;
     const EINVALID_ADDRESS: u64 = 117;
+    /// Withdrawal limits resource hasn't been initialized yet — limits enforce
+    /// nothing until an admin calls `init_withdrawal_limits` followed by
+    /// `start_withdrawal_period`. Returned by admin entries and limit views
+    /// that require state.
+    const ELIMITS_NOT_INITIALIZED: u64 = 118;
+    const ELIMITS_ALREADY_INITIALIZED: u64 = 119;
+    const ENOT_LIMITS_ADMIN: u64 = 120;
+    const ENO_PENDING_LIMITS_ADMIN: u64 = 121;
+    const ENOT_PENDING_LIMITS_ADMIN: u64 = 122;
+    /// The withdrawal would push total global withdrawals over the active
+    /// global cap for the current period.
+    const EGLOBAL_WITHDRAWAL_LIMIT_EXCEEDED: u64 = 123;
+    /// The withdrawal would push this user's total withdrawals over their
+    /// effective per-user cap (override if set, otherwise the global default).
+    /// A blocked user (override = 0) also surfaces under this code.
+    const EUSER_WITHDRAWAL_LIMIT_EXCEEDED: u64 = 124;
+    const EINVALID_LIMIT_DURATION: u64 = 125;
 
     struct BridgeState has key, store {
         controller: address,
@@ -106,6 +124,66 @@ module aptree::moneyfi_adapter {
         last_update_timestamp: u64,
         window_seconds: u64,
         drop_threshold_bps: u64
+    }
+
+    /// Capped-withdrawal circuit. Layered on top of the price monitor — both
+    /// gates run independently at `request_withdrawal` time. Caps are scoped
+    /// to a single time-bounded "period"; admins start a period with a global
+    /// and per-user cap and a duration, and can pause/update/clear mid-period
+    /// without losing the consumed counters. Per-address overrides let admins
+    /// whitelist (cap > default) or blacklist (cap = 0) individual users.
+    ///
+    /// Resource is lazily initialized via `init_withdrawal_limits` to keep
+    /// the upgrade backwards-compatible with the deployed module — until that
+    /// call lands, every gate short-circuits to "no limit enforced".
+    struct WithdrawalLimits has key {
+        admin: address,
+        pending_admin: Option<address>,
+        /// Master switch. `false` makes every gate short-circuit. Set by
+        /// `start_withdrawal_period` (true) and `clear_withdrawal_period`
+        /// (false). Independent of `expires_at` — an enabled-but-expired
+        /// period also short-circuits.
+        enabled: bool,
+        /// Unix seconds. The period ends at this timestamp; samples at or
+        /// after are treated as "no period active". `0` means "no expiry"
+        /// (admin uses `clear_withdrawal_period` to disable instead).
+        expires_at: u64,
+        /// Aggregate withdrawals cap for the current period, in token units.
+        /// `0` means "no global cap" — only per-user caps apply.
+        global_cap: u64,
+        /// Default per-user cap for the current period, in token units.
+        /// `0` means "no default per-user cap" — only the global cap and
+        /// per-address overrides apply.
+        per_user_cap: u64,
+        /// Running total of all withdrawals charged against `global_cap` in
+        /// the current period. Reset to 0 by `start_withdrawal_period`.
+        global_consumed: u64,
+        /// Monotonically increasing identifier for the active period. Bumped
+        /// by `start_withdrawal_period`. Per-user consumption entries store
+        /// the epoch they were written under — a mismatch means the entry is
+        /// from a previous period and is treated as zero.
+        period_epoch: u64,
+        period_started_at: u64,
+        /// Per-user consumed amounts. Entries persist across periods but are
+        /// implicitly reset by an epoch mismatch, so we never need to iterate
+        /// to clear state when a new period starts.
+        user_consumed: Table<address, UserPeriodConsumption>,
+        /// Per-address cap overrides. Semantics:
+        ///   - Not in table: user follows `per_user_cap` default.
+        ///   - In table, value > 0: user's cap is this value (can be higher
+        ///     or lower than the default).
+        ///   - In table, value == 0: user is BLOCKED from all withdrawals.
+        /// Use `clear_user_override` to remove an entry.
+        user_overrides: Table<address, u64>
+    }
+
+    /// Per-user consumption checkpoint. The `period_epoch` field is what makes
+    /// new periods cheap — instead of iterating to clear all entries, we
+    /// compare the entry's epoch against the current period's and treat any
+    /// mismatch as zero.
+    struct UserPeriodConsumption has store, drop {
+        period_epoch: u64,
+        consumed: u64
     }
 
     #[event]
@@ -202,6 +280,88 @@ module aptree::moneyfi_adapter {
 
     #[event]
     struct PriceMonitorAdminTransferred has drop, store {
+        old_admin: address,
+        new_admin: address,
+        timestamp: u64
+    }
+
+    #[event]
+    struct WithdrawalLimitsInitialized has drop, store {
+        admin: address,
+        timestamp: u64
+    }
+
+    #[event]
+    struct WithdrawalPeriodStarted has drop, store {
+        period_epoch: u64,
+        global_cap: u64,
+        per_user_cap: u64,
+        expires_at: u64,
+        started_at: u64,
+        actor: address
+    }
+
+    #[event]
+    struct WithdrawalPeriodUpdated has drop, store {
+        period_epoch: u64,
+        old_global_cap: u64,
+        new_global_cap: u64,
+        old_per_user_cap: u64,
+        new_per_user_cap: u64,
+        old_expires_at: u64,
+        new_expires_at: u64,
+        actor: address,
+        timestamp: u64
+    }
+
+    #[event]
+    struct WithdrawalPeriodCleared has drop, store {
+        period_epoch: u64,
+        global_consumed_at_clear: u64,
+        actor: address,
+        timestamp: u64
+    }
+
+    /// Emitted after every successful withdrawal that ran through the limits
+    /// gate (i.e. limits were active and the request passed). Off-chain
+    /// dashboards can sum these to mirror `global_consumed` without polling
+    /// view functions.
+    #[event]
+    struct WithdrawalConsumed has drop, store {
+        user: address,
+        amount: u64,
+        global_consumed_after: u64,
+        user_consumed_after: u64,
+        period_epoch: u64,
+        timestamp: u64
+    }
+
+    #[event]
+    struct UserOverrideSet has drop, store {
+        user: address,
+        cap: u64,
+        previous_cap: Option<u64>,
+        actor: address,
+        timestamp: u64
+    }
+
+    #[event]
+    struct UserOverrideCleared has drop, store {
+        user: address,
+        previous_cap: u64,
+        actor: address,
+        timestamp: u64
+    }
+
+    #[event]
+    struct LimitsAdminProposed has drop, store {
+        current_admin: address,
+        proposed_admin: address,
+        timestamp: u64
+    }
+
+    #[event]
+    struct LimitsAdminTransferred has drop, store {
         old_admin: address,
         new_admin: address,
         timestamp: u64
@@ -324,8 +484,15 @@ module aptree::moneyfi_adapter {
         token: Object<Metadata>,
         amount: u64,
         min_share_price: u128
-    ) acquires BridgeState, ReserveState, BridgeWithdrawalTokenState, PriceMonitor {
+    ) acquires BridgeState, ReserveState, BridgeWithdrawalTokenState, PriceMonitor, WithdrawalLimits {
         check_and_assert_bridge_active();
+        // Daily cap gate: charges `amount` against the active period's global
+        // and per-user counters. No-op if `WithdrawalLimits` isn't initialized,
+        // the period is disabled, or the period has expired — those callers
+        // see no behaviour change. Runs after the price monitor so a paused
+        // bridge always wins over a limit message, and before any token
+        // movement so a failed cap leaves no side effects.
+        check_and_consume_withdrawal_limit(address_of(user), amount);
 
         let controller_address = account::create_resource_address(&@aptree, SEED);
         let reserve_address = account::create_resource_address(&@aptree, RESERVE);
@@ -496,7 +663,7 @@ module aptree::moneyfi_adapter {
 
     public entry fun request(
         user: &signer, amount: u64, min_share_price: u128
-    ) acquires BridgeWithdrawalTokenState, ReserveState, BridgeState, PriceMonitor {
+    ) acquires BridgeWithdrawalTokenState, ReserveState, BridgeState, PriceMonitor, WithdrawalLimits {
         let token_metadata = object::address_to_object<Metadata>(get_supported_token());
         request_withdrawal(user, token_metadata, amount, min_share_price)
     }
@@ -979,6 +1146,597 @@ module aptree::moneyfi_adapter {
                 current_value,
                 drop_bps,
                 paused: monitor.paused,
+                timestamp: now
+            }
+        );
+    }
+
+    // ─── Withdrawal limits ──────────────────────────────────────────────────
+    //
+    // Daily/period-bounded caps on withdrawal requests. The gate runs inside
+    // `request_withdrawal` after the price monitor — that's where the user
+    // commits to a specific amount (the later `withdraw` step just settles
+    // already-earmarked funds). Two layers stack:
+    //
+    //   * `global_cap` — aggregate across all users for the period.
+    //   * `per_user_cap` — default per-user ceiling. Per-address overrides in
+    //     `user_overrides` can raise this (whitelist a market maker) or zero
+    //     it (block a flagged account).
+    //
+    // The whole resource is lazily initialized by `init_withdrawal_limits`
+    // (one-time, callable only by `@aptree`) so the upgrade ships compatibly:
+    // until that call lands, every gate is a no-op and the bridge behaves as
+    // before. Even after init, gates short-circuit while `enabled == false`
+    // or the period has expired — admins start a period explicitly via
+    // `start_withdrawal_period`.
+    //
+    // Cap consumption is tracked under a `period_epoch` that bumps with each
+    // new period, so we never need to iterate the `user_consumed` table to
+    // reset: entries from previous epochs are read as zero. This means the
+    // table only grows by one entry per unique user ever, not per period.
+
+    /// One-time initialization. Caller must be `@aptree`. Creates the resource
+    /// in a disabled, empty-period state — admins still need to call
+    /// `start_withdrawal_period` before any cap is enforced.
+    public entry fun init_withdrawal_limits(admin: &signer) acquires BridgeState {
+        assert!(address_of(admin) == @aptree, ENOT_LIMITS_ADMIN);
+        let controller_address = account::create_resource_address(&@aptree, SEED);
+        assert!(
+            !exists<WithdrawalLimits>(controller_address),
+            ELIMITS_ALREADY_INITIALIZED
+        );
+
+        let bridge_state = borrow_global<BridgeState>(controller_address);
+        let controller_signer =
+            account::create_signer_with_capability(&bridge_state.controller_capability);
+
+        move_to(
+            &controller_signer,
+            WithdrawalLimits {
+                admin: address_of(admin),
+                pending_admin: option::none(),
+                enabled: false,
+                expires_at: 0,
+                global_cap: 0,
+                per_user_cap: 0,
+                global_consumed: 0,
+                period_epoch: 0,
+                period_started_at: 0,
+                user_consumed: table::new<address, UserPeriodConsumption>(),
+                user_overrides: table::new<address, u64>()
+            }
+        );
+
+        emit(
+            WithdrawalLimitsInitialized {
+                admin: address_of(admin),
+                timestamp: timestamp::now_seconds()
+            }
+        );
+    }
+
+    /// Start a fresh limit period. Bumps `period_epoch` (which implicitly
+    /// resets all per-user consumed counters), zeroes `global_consumed`, and
+    /// sets new caps/expiry. Use this at the start of each daily window
+    /// (or whenever you want a clean slate). To extend or adjust an in-flight
+    /// period without resetting consumption, use `update_withdrawal_period`.
+    ///
+    /// A cap of `0` means "no limit on this axis" — `global_cap = 0`
+    /// disables the global cap; `per_user_cap = 0` disables the per-user
+    /// default cap (overrides still apply if set).
+    public entry fun start_withdrawal_period(
+        admin: &signer,
+        global_cap: u64,
+        per_user_cap: u64,
+        duration_seconds: u64
+    ) acquires WithdrawalLimits {
+        let controller_address = account::create_resource_address(&@aptree, SEED);
+        assert!(
+            exists<WithdrawalLimits>(controller_address), ELIMITS_NOT_INITIALIZED
+        );
+        let limits = borrow_global_mut<WithdrawalLimits>(controller_address);
+        assert!(address_of(admin) == limits.admin, ENOT_LIMITS_ADMIN);
+        assert!(duration_seconds > 0, EINVALID_LIMIT_DURATION);
+
+        let now = timestamp::now_seconds();
+        limits.period_epoch = limits.period_epoch + 1;
+        limits.enabled = true;
+        limits.global_cap = global_cap;
+        limits.per_user_cap = per_user_cap;
+        limits.expires_at = now + duration_seconds;
+        limits.global_consumed = 0;
+        limits.period_started_at = now;
+
+        emit(
+            WithdrawalPeriodStarted {
+                period_epoch: limits.period_epoch,
+                global_cap,
+                per_user_cap,
+                expires_at: now + duration_seconds,
+                started_at: now,
+                actor: address_of(admin)
+            }
+        );
+    }
+
+    /// Adjust the active period in place — keeps the current `period_epoch`
+    /// and `global_consumed`, just rewires the caps and resets the expiry to
+    /// `now + duration_seconds`. Useful for "raise the cap mid-day" or
+    /// "extend the window" without invalidating consumption that's already
+    /// accrued. To wipe consumed counters, call `start_withdrawal_period`.
+    public entry fun update_withdrawal_period(
+        admin: &signer,
+        global_cap: u64,
+        per_user_cap: u64,
+        duration_seconds: u64
+    ) acquires WithdrawalLimits {
+        let controller_address = account::create_resource_address(&@aptree, SEED);
+        assert!(
+            exists<WithdrawalLimits>(controller_address), ELIMITS_NOT_INITIALIZED
+        );
+        let limits = borrow_global_mut<WithdrawalLimits>(controller_address);
+        assert!(address_of(admin) == limits.admin, ENOT_LIMITS_ADMIN);
+        assert!(duration_seconds > 0, EINVALID_LIMIT_DURATION);
+
+        let now = timestamp::now_seconds();
+        let old_global = limits.global_cap;
+        let old_user = limits.per_user_cap;
+        let old_expires = limits.expires_at;
+        let new_expires = now + duration_seconds;
+
+        limits.global_cap = global_cap;
+        limits.per_user_cap = per_user_cap;
+        limits.expires_at = new_expires;
+        // `enabled` is intentionally not touched here — admins who want to
+        // re-enable a cleared period should call `start_withdrawal_period`
+        // (which resets consumed counters as well).
+
+        emit(
+            WithdrawalPeriodUpdated {
+                period_epoch: limits.period_epoch,
+                old_global_cap: old_global,
+                new_global_cap: global_cap,
+                old_per_user_cap: old_user,
+                new_per_user_cap: per_user_cap,
+                old_expires_at: old_expires,
+                new_expires_at: new_expires,
+                actor: address_of(admin),
+                timestamp: now
+            }
+        );
+    }
+
+    /// **End the active withdrawal limit immediately** — call this to lift
+    /// all restrictions and return the bridge to normal request behaviour. The
+    /// gate short-circuits on the very next call. Caps and consumed counters
+    /// are preserved (so a subsequent `update_withdrawal_period` resumes from
+    /// where you left off without resetting); to wipe counters and start a
+    /// fresh period instead, use `start_withdrawal_period`. This call only
+    /// affects the cap gate — it does NOT touch the price-monitor pause and
+    /// does NOT cancel any AEWT users already hold from earlier `request`
+    /// calls (those still settle normally via `withdraw`).
+    public entry fun clear_withdrawal_period(admin: &signer) acquires WithdrawalLimits {
+        let controller_address = account::create_resource_address(&@aptree, SEED);
+        assert!(
+            exists<WithdrawalLimits>(controller_address), ELIMITS_NOT_INITIALIZED
+        );
+        let limits = borrow_global_mut<WithdrawalLimits>(controller_address);
+        assert!(address_of(admin) == limits.admin, ENOT_LIMITS_ADMIN);
+
+        let consumed_at_clear = limits.global_consumed;
+        let epoch = limits.period_epoch;
+        limits.enabled = false;
+
+        emit(
+            WithdrawalPeriodCleared {
+                period_epoch: epoch,
+                global_consumed_at_clear: consumed_at_clear,
+                actor: address_of(admin),
+                timestamp: timestamp::now_seconds()
+            }
+        );
+    }
+
+    /// Set a per-address cap. Override semantics:
+    ///   * `cap > 0` — this user's cap is `cap` (independent of `per_user_cap`).
+    ///   * `cap == 0` — this user is fully BLOCKED from withdrawing while
+    ///     limits are active. Use this to freeze a flagged account; clear
+    ///     with `clear_user_override`.
+    public entry fun set_user_override(
+        admin: &signer, user: address, cap: u64
+    ) acquires WithdrawalLimits {
+        let controller_address = account::create_resource_address(&@aptree, SEED);
+        assert!(
+            exists<WithdrawalLimits>(controller_address), ELIMITS_NOT_INITIALIZED
+        );
+        let limits = borrow_global_mut<WithdrawalLimits>(controller_address);
+        assert!(address_of(admin) == limits.admin, ENOT_LIMITS_ADMIN);
+        assert!(user != @0x0, EINVALID_ADDRESS);
+
+        let previous = if (table::contains(&limits.user_overrides, user)) {
+            let entry = table::borrow_mut(&mut limits.user_overrides, user);
+            let prev = *entry;
+            *entry = cap;
+            option::some(prev)
+        } else {
+            table::add(&mut limits.user_overrides, user, cap);
+            option::none()
+        };
+
+        emit(
+            UserOverrideSet {
+                user,
+                cap,
+                previous_cap: previous,
+                actor: address_of(admin),
+                timestamp: timestamp::now_seconds()
+            }
+        );
+    }
+
+    /// Remove a per-address override. The user falls back to whatever
+    /// `per_user_cap` is on the active period.
+    public entry fun clear_user_override(
+        admin: &signer, user: address
+    ) acquires WithdrawalLimits {
+        let controller_address = account::create_resource_address(&@aptree, SEED);
+        assert!(
+            exists<WithdrawalLimits>(controller_address), ELIMITS_NOT_INITIALIZED
+        );
+        let limits = borrow_global_mut<WithdrawalLimits>(controller_address);
+        assert!(address_of(admin) == limits.admin, ENOT_LIMITS_ADMIN);
+        assert!(table::contains(&limits.user_overrides, user), EINVALID_ADDRESS);
+
+        let previous_cap = table::remove(&mut limits.user_overrides, user);
+
+        emit(
+            UserOverrideCleared {
+                user,
+                previous_cap,
+                actor: address_of(admin),
+                timestamp: timestamp::now_seconds()
+            }
+        );
+    }
+
+    public entry fun propose_limits_admin(
+        admin: &signer, new_admin: address
+    ) acquires WithdrawalLimits {
+        let controller_address = account::create_resource_address(&@aptree, SEED);
+        assert!(
+            exists<WithdrawalLimits>(controller_address), ELIMITS_NOT_INITIALIZED
+        );
+        let limits = borrow_global_mut<WithdrawalLimits>(controller_address);
+        assert!(address_of(admin) == limits.admin, ENOT_LIMITS_ADMIN);
+        assert!(new_admin != @0x0, EINVALID_ADDRESS);
+
+        limits.pending_admin = option::some(new_admin);
+        emit(
+            LimitsAdminProposed {
+                current_admin: limits.admin,
+                proposed_admin: new_admin,
+                timestamp: timestamp::now_seconds()
+            }
+        );
+    }
+
+    public entry fun accept_limits_admin(new_admin: &signer) acquires WithdrawalLimits {
+        let controller_address = account::create_resource_address(&@aptree, SEED);
+        assert!(
+            exists<WithdrawalLimits>(controller_address), ELIMITS_NOT_INITIALIZED
+        );
+        let limits = borrow_global_mut<WithdrawalLimits>(controller_address);
+        assert!(limits.pending_admin.is_some(), ENO_PENDING_LIMITS_ADMIN);
+        assert!(
+            address_of(new_admin) == *limits.pending_admin.borrow(),
+            ENOT_PENDING_LIMITS_ADMIN
+        );
+
+        let old_admin = limits.admin;
+        limits.admin = address_of(new_admin);
+        limits.pending_admin = option::none();
+        emit(
+            LimitsAdminTransferred {
+                old_admin,
+                new_admin: address_of(new_admin),
+                timestamp: timestamp::now_seconds()
+            }
+        );
+    }
+
+    // ─── Limit views ────────────────────────────────────────────────────────
+
+    #[view]
+    public fun is_limits_initialized(): bool {
+        exists<WithdrawalLimits>(account::create_resource_address(&@aptree, SEED))
+    }
+
+    /// `true` only when the gate would actually enforce something: initialized,
+    /// `enabled`, and not expired. Frontends can use this to decide whether to
+    /// show a "limits active" indicator at all.
+    #[view]
+    public fun are_limits_active(): bool acquires WithdrawalLimits {
+        let controller_address = account::create_resource_address(&@aptree, SEED);
+        if (!exists<WithdrawalLimits>(controller_address)) return false;
+        let limits = borrow_global<WithdrawalLimits>(controller_address);
+        if (!limits.enabled) return false;
+        if (limits.expires_at > 0
+            && timestamp::now_seconds() >= limits.expires_at) return false;
+        true
+    }
+
+    #[view]
+    public fun get_limits_admin(): address acquires WithdrawalLimits {
+        let controller_address = account::create_resource_address(&@aptree, SEED);
+        assert!(
+            exists<WithdrawalLimits>(controller_address), ELIMITS_NOT_INITIALIZED
+        );
+        borrow_global<WithdrawalLimits>(controller_address).admin
+    }
+
+    #[view]
+    public fun get_limits_pending_admin(): Option<address> acquires WithdrawalLimits {
+        let controller_address = account::create_resource_address(&@aptree, SEED);
+        assert!(
+            exists<WithdrawalLimits>(controller_address), ELIMITS_NOT_INITIALIZED
+        );
+        borrow_global<WithdrawalLimits>(controller_address).pending_admin
+    }
+
+    /// Diagnostic dump of the period header. Tuple order:
+    /// (enabled, expires_at, global_cap, per_user_cap, global_consumed,
+    ///  period_epoch, period_started_at). Returns all-zero when the resource
+    /// is not yet initialized so callers don't need to gate on
+    /// `is_limits_initialized` first.
+    #[view]
+    public fun get_withdrawal_period_state(): (
+        bool, u64, u64, u64, u64, u64, u64
+    ) acquires WithdrawalLimits {
+        let controller_address = account::create_resource_address(&@aptree, SEED);
+        if (!exists<WithdrawalLimits>(controller_address)) return (
+            false, 0, 0, 0, 0, 0, 0
+        );
+        let limits = borrow_global<WithdrawalLimits>(controller_address);
+        (
+            limits.enabled,
+            limits.expires_at,
+            limits.global_cap,
+            limits.per_user_cap,
+            limits.global_consumed,
+            limits.period_epoch,
+            limits.period_started_at
+        )
+    }
+
+    /// Per-user status snapshot. Tuple order:
+    /// (active, has_override, effective_user_cap, user_consumed,
+    ///  global_cap, global_consumed, expires_at).
+    ///
+    /// Field interpretation when `active == true`:
+    ///   * `has_override == true && effective_user_cap == 0` → user is blocked.
+    ///   * `has_override == true && effective_user_cap > 0` → that's the cap.
+    ///   * `has_override == false && effective_user_cap > 0` → `per_user_cap`.
+    ///   * `has_override == false && effective_user_cap == 0` → no per-user
+    ///     ceiling at all (only the global cap, if any, applies).
+    ///
+    /// When `active == false` all numeric fields are returned as zero; the
+    /// frontend should ignore them.
+    #[view]
+    public fun get_user_withdrawal_status(user: address): (
+        bool, bool, u64, u64, u64, u64, u64
+    ) acquires WithdrawalLimits {
+        let controller_address = account::create_resource_address(&@aptree, SEED);
+        if (!exists<WithdrawalLimits>(controller_address)) return (
+            false, false, 0, 0, 0, 0, 0
+        );
+        let limits = borrow_global<WithdrawalLimits>(controller_address);
+        if (!limits.enabled) return (false, false, 0, 0, 0, 0, 0);
+        let now = timestamp::now_seconds();
+        if (limits.expires_at > 0 && now >= limits.expires_at) return (
+            false, false, 0, 0, 0, 0, 0
+        );
+
+        let has_override = table::contains(&limits.user_overrides, user);
+        let user_cap = if (has_override) {
+            *table::borrow(&limits.user_overrides, user)
+        } else {
+            limits.per_user_cap
+        };
+
+        let user_consumed = if (table::contains(&limits.user_consumed, user)) {
+            let entry = table::borrow(&limits.user_consumed, user);
+            if (entry.period_epoch == limits.period_epoch) entry.consumed else 0
+        } else { 0 };
+
+        (
+            true,
+            has_override,
+            user_cap,
+            user_consumed,
+            limits.global_cap,
+            limits.global_consumed,
+            limits.expires_at
+        )
+    }
+
+    /// Maximum amount this user could withdraw *right now*. Returns
+    /// `u64::MAX` (`18446744073709551615`) when no limit applies — frontends
+    /// can render this as "unlimited" or check `are_limits_active()` first
+    /// to skip rendering caps altogether.
+    #[view]
+    public fun get_user_max_withdrawable(user: address): u64 acquires WithdrawalLimits {
+        let (
+            active,
+            has_override,
+            user_cap,
+            user_consumed,
+            global_cap,
+            global_consumed,
+            _expires_at
+        ) = get_user_withdrawal_status(user);
+        if (!active) return 18446744073709551615u64;
+
+        let user_remaining =
+            if (has_override && user_cap == 0) {
+                // Explicit blocklist override.
+                0
+            } else if (user_cap == 0) {
+                // No per-user cap configured.
+                18446744073709551615u64
+            } else if (user_consumed >= user_cap) { 0 }
+            else { user_cap - user_consumed };
+
+        let global_remaining =
+            if (global_cap == 0) {
+                18446744073709551615u64
+            } else if (global_consumed >= global_cap) { 0 }
+            else { global_cap - global_consumed };
+
+        if (user_remaining < global_remaining) user_remaining
+        else global_remaining
+    }
+
+    /// Cheap pre-flight check. `true` iff a call to `request` for `amount`
+    /// would pass the cap gate right now. Doesn't account for the price
+    /// monitor or LP-balance checks — purely a limits read.
+    #[view]
+    public fun can_user_withdraw(user: address, amount: u64): bool acquires WithdrawalLimits {
+        amount <= get_user_max_withdrawable(user)
+    }
+
+    /// Returns the per-address override for `user` if one exists. `none()`
+    /// means the user follows the period's `per_user_cap` default. `some(0)`
+    /// means the user is explicitly blocked.
+    #[view]
+    public fun get_user_override(user: address): Option<u64> acquires WithdrawalLimits {
+        let controller_address = account::create_resource_address(&@aptree, SEED);
+        if (!exists<WithdrawalLimits>(controller_address)) return option::none();
+        let limits = borrow_global<WithdrawalLimits>(controller_address);
+        if (table::contains(&limits.user_overrides, user)) {
+            option::some(*table::borrow(&limits.user_overrides, user))
+        } else { option::none() }
+    }
+
+    /// How much the given user has already withdrawn during the current
+    /// period. Returns `0` if the user has no record under the current epoch
+    /// or if limits aren't initialized.
+    #[view]
+    public fun get_user_period_consumed(user: address): u64 acquires WithdrawalLimits {
+        let controller_address = account::create_resource_address(&@aptree, SEED);
+        if (!exists<WithdrawalLimits>(controller_address)) return 0;
+        let limits = borrow_global<WithdrawalLimits>(controller_address);
+        if (!table::contains(&limits.user_consumed, user)) return 0;
+        let entry = table::borrow(&limits.user_consumed, user);
+        if (entry.period_epoch != limits.period_epoch) return 0;
+        entry.consumed
+    }
+
+    /// How much aggregate withdrawal capacity is left in the active period.
+    /// All values are in AEWT (= underlying token) units. Returns
+    /// `u64::MAX` (`18446744073709551615`) when no enforced ceiling applies —
+    /// limits uninitialized, disabled, expired, or `global_cap == 0`.
+    /// Frontends can use this to display "X tokens remaining in today's
+    /// window" without first reading the full period state.
+    #[view]
+    public fun get_global_remaining_withdrawable(): u64 acquires WithdrawalLimits {
+        let controller_address = account::create_resource_address(&@aptree, SEED);
+        if (!exists<WithdrawalLimits>(controller_address)) return 18446744073709551615u64;
+        let limits = borrow_global<WithdrawalLimits>(controller_address);
+        if (!limits.enabled) return 18446744073709551615u64;
+        if (limits.expires_at > 0
+            && timestamp::now_seconds() >= limits.expires_at) return 18446744073709551615u64;
+        if (limits.global_cap == 0) return 18446744073709551615u64;
+        if (limits.global_consumed >= limits.global_cap) return 0;
+        limits.global_cap - limits.global_consumed
+    }
+
+    // ─── Limit internals ────────────────────────────────────────────────────
+
+    /// Combined check + bookkeeping. Three short-circuits:
+    ///   1. Resource not initialized → silent return (pre-init compat).
+    ///   2. `enabled == false` → silent return (admin cleared).
+    ///   3. `expires_at` reached → silent return (period ended).
+    ///
+    /// When a check fails it aborts before incrementing — global and per-user
+    /// counters are only ever advanced on a successful pass.
+    fun check_and_consume_withdrawal_limit(
+        user: address, amount: u64
+    ) acquires WithdrawalLimits {
+        let controller_address = account::create_resource_address(&@aptree, SEED);
+        if (!exists<WithdrawalLimits>(controller_address)) return;
+        let limits = borrow_global_mut<WithdrawalLimits>(controller_address);
+        if (!limits.enabled) return;
+
+        let now = timestamp::now_seconds();
+        if (limits.expires_at > 0 && now >= limits.expires_at) return;
+
+        // Use u128 math so a pathological `amount` near `u64::MAX` doesn't
+        // crash the gate with ARITHMETIC_ERROR before we get to surface our
+        // own error code.
+        if (limits.global_cap > 0) {
+            let projected =
+                (limits.global_consumed as u128) + (amount as u128);
+            assert!(
+                projected <= (limits.global_cap as u128),
+                EGLOBAL_WITHDRAWAL_LIMIT_EXCEEDED
+            );
+        };
+
+        let has_override = table::contains(&limits.user_overrides, user);
+        let user_cap = if (has_override) {
+            *table::borrow(&limits.user_overrides, user)
+        } else {
+            limits.per_user_cap
+        };
+
+        let current_epoch = limits.period_epoch;
+        let user_consumed_now = if (table::contains(&limits.user_consumed, user)) {
+            let entry = table::borrow(&limits.user_consumed, user);
+            if (entry.period_epoch == current_epoch) entry.consumed else 0
+        } else { 0 };
+
+        if (has_override) {
+            // Override of 0 means "explicitly blocked", regardless of amount.
+            assert!(user_cap > 0, EUSER_WITHDRAWAL_LIMIT_EXCEEDED);
+            let projected_user =
+                (user_consumed_now as u128) + (amount as u128);
+            assert!(
+                projected_user <= (user_cap as u128),
+                EUSER_WITHDRAWAL_LIMIT_EXCEEDED
+            );
+        } else if (user_cap > 0) {
+            let projected_user =
+                (user_consumed_now as u128) + (amount as u128);
+            assert!(
+                projected_user <= (user_cap as u128),
+                EUSER_WITHDRAWAL_LIMIT_EXCEEDED
+            );
+        };
+
+        limits.global_consumed = limits.global_consumed + amount;
+        let new_user_consumed = user_consumed_now + amount;
+        if (table::contains(&limits.user_consumed, user)) {
+            let entry_mut = table::borrow_mut(&mut limits.user_consumed, user);
+            entry_mut.period_epoch = current_epoch;
+            entry_mut.consumed = new_user_consumed;
+        } else {
+            table::add(
+                &mut limits.user_consumed,
+                user,
+                UserPeriodConsumption {
+                    period_epoch: current_epoch,
+                    consumed: new_user_consumed
+                }
+            );
+        };
+
+        emit(
+            WithdrawalConsumed {
+                user,
+                amount,
+                global_consumed_after: limits.global_consumed,
+                user_consumed_after: new_user_consumed,
+                period_epoch: current_epoch,
                 timestamp: now
             }
         );

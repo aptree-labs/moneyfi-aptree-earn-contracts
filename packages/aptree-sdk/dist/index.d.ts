@@ -26,6 +26,43 @@ interface AptreeClientConfig {
 }
 
 /**
+ * Default `maxGasAmount` applied to every transaction built by an SDK
+ * builder. The Aptos default (~200k) is too low to simulate the bridge's
+ * `request` flow, which walks the moneyfi vault inside the price-monitor
+ * and withdrawal-limits gates. We default to a generous 2M to keep
+ * `execution_limit_reached` from surfacing during simulation; the user is
+ * only ever charged for gas actually consumed, so the higher ceiling has
+ * no cost when the txn is cheap.
+ *
+ * For wallet-adapter flows (where the wallet builds the txn, not us), pass
+ * this value through under `options.maxGasAmount` at submission time, e.g.
+ *
+ * ```ts
+ * await signAndSubmitTransaction({
+ *   data: client.bridge.builder.requestPayload(args),
+ *   options: { maxGasAmount: RECOMMENDED_MAX_GAS_AMOUNT },
+ * });
+ * ```
+ */
+declare const RECOMMENDED_MAX_GAS_AMOUNT = 2000000;
+/**
+ * Per-transaction overrides accepted by every SDK builder. Anything you
+ * leave out falls back to the SDK defaults (notably
+ * {@link RECOMMENDED_MAX_GAS_AMOUNT} for `maxGasAmount`).
+ */
+interface BuildTransactionOptions {
+    /**
+     * Maximum gas units the network is allowed to charge for this txn. You
+     * only pay for what's used; this is the ceiling, not the cost. Defaults
+     * to {@link RECOMMENDED_MAX_GAS_AMOUNT}.
+     */
+    maxGasAmount?: number;
+    /** Octas per gas unit. If omitted, the SDK picks a network default. */
+    gasUnitPrice?: number;
+    /** Unix seconds after which the txn is rejected by the chain. */
+    expireTimestamp?: number;
+}
+/**
  * Abstract base class shared by all contract module classes.
  *
  * Provides helpers for building transactions, calling view functions,
@@ -38,13 +75,18 @@ declare abstract class BaseModule {
     /**
      * Build a simple entry-function transaction.
      *
+     * Applies a generous default `maxGasAmount` ({@link RECOMMENDED_MAX_GAS_AMOUNT})
+     * to keep the bridge's `request` / `deposit` flows from tripping the
+     * simulator's compute limit. Pass `options` to override per call.
+     *
      * @param sender - The account address that will sign the transaction.
      * @param functionId - Fully qualified Move function identifier (e.g. `"0x1::module::function"`).
      * @param functionArguments - Arguments to pass to the Move function.
      * @param typeArguments - Generic type arguments, if any.
+     * @param options - Optional gas / expiry overrides. See {@link BuildTransactionOptions}.
      * @returns A built {@link SimpleTransaction} ready for signing and submission.
      */
-    protected buildTransaction(sender: AccountAddressInput, functionId: MoveFunctionId, functionArguments: Array<string | number | boolean | Uint8Array | AccountAddressInput>, typeArguments?: string[]): Promise<SimpleTransaction>;
+    protected buildTransaction(sender: AccountAddressInput, functionId: MoveFunctionId, functionArguments: Array<string | number | boolean | Uint8Array | AccountAddressInput>, typeArguments?: string[], options?: BuildTransactionOptions): Promise<SimpleTransaction>;
     /**
      * Create an entry-function payload for use with wallet adapters.
      *
@@ -179,7 +221,7 @@ declare class BridgeBuilder extends BaseModule {
      * @param args - {@link BridgeDepositArgs}
      * @returns A built transaction ready for signing.
      */
-    deposit(sender: AccountAddressInput, args: BridgeDepositArgs): Promise<SimpleTransaction>;
+    deposit(sender: AccountAddressInput, args: BridgeDepositArgs, options?: BuildTransactionOptions): Promise<SimpleTransaction>;
     /**
      * Build a `bridge::request` transaction.
      *
@@ -187,11 +229,16 @@ declare class BridgeBuilder extends BaseModule {
      * provides slippage protection — the transaction reverts if the share price is
      * below this threshold.
      *
+     * The base module applies a generous default `maxGasAmount` (2M) so the
+     * vault + price-monitor + withdrawal-limits gates don't trip the simulator's
+     * compute budget. Pass `options.maxGasAmount` to override per call.
+     *
      * @param sender - The account address that will sign this transaction.
      * @param args - {@link BridgeRequestArgs}
+     * @param options - Optional gas / expiry overrides.
      * @returns A built transaction ready for signing.
      */
-    request(sender: AccountAddressInput, args: BridgeRequestArgs): Promise<SimpleTransaction>;
+    request(sender: AccountAddressInput, args: BridgeRequestArgs, options?: BuildTransactionOptions): Promise<SimpleTransaction>;
     /**
      * Build a `bridge::withdraw` transaction.
      *
@@ -200,9 +247,10 @@ declare class BridgeBuilder extends BaseModule {
      *
      * @param sender - The account address that will sign this transaction.
      * @param args - {@link BridgeWithdrawArgs}
+     * @param options - Optional gas / expiry overrides.
      * @returns A built transaction ready for signing.
      */
-    withdraw(sender: AccountAddressInput, args: BridgeWithdrawArgs): Promise<SimpleTransaction>;
+    withdraw(sender: AccountAddressInput, args: BridgeWithdrawArgs, options?: BuildTransactionOptions): Promise<SimpleTransaction>;
     /**
      * Build a `moneyfi_adapter::deposit` transaction.
      *
@@ -213,7 +261,7 @@ declare class BridgeBuilder extends BaseModule {
      * @param args - {@link MoneyFiAdapterDepositArgs}
      * @returns A built transaction ready for signing.
      */
-    adapterDeposit(sender: AccountAddressInput, args: MoneyFiAdapterDepositArgs): Promise<SimpleTransaction>;
+    adapterDeposit(sender: AccountAddressInput, args: MoneyFiAdapterDepositArgs, options?: BuildTransactionOptions): Promise<SimpleTransaction>;
     /**
      * Build a `moneyfi_adapter::request` transaction.
      *
@@ -221,9 +269,10 @@ declare class BridgeBuilder extends BaseModule {
      *
      * @param sender - The account address that will sign this transaction.
      * @param args - {@link MoneyFiAdapterRequestArgs}
+     * @param options - Optional gas / expiry overrides.
      * @returns A built transaction ready for signing.
      */
-    adapterRequest(sender: AccountAddressInput, args: MoneyFiAdapterRequestArgs): Promise<SimpleTransaction>;
+    adapterRequest(sender: AccountAddressInput, args: MoneyFiAdapterRequestArgs, options?: BuildTransactionOptions): Promise<SimpleTransaction>;
     /**
      * Build a `moneyfi_adapter::withdraw` transaction.
      *
@@ -231,12 +280,25 @@ declare class BridgeBuilder extends BaseModule {
      *
      * @param sender - The account address that will sign this transaction.
      * @param args - {@link MoneyFiAdapterWithdrawArgs}
+     * @param options - Optional gas / expiry overrides.
      * @returns A built transaction ready for signing.
      */
-    adapterWithdraw(sender: AccountAddressInput, args: MoneyFiAdapterWithdrawArgs): Promise<SimpleTransaction>;
-    /** Payload for `bridge::deposit`. @see {@link deposit} */
+    adapterWithdraw(sender: AccountAddressInput, args: MoneyFiAdapterWithdrawArgs, options?: BuildTransactionOptions): Promise<SimpleTransaction>;
+    /**
+     * Payload for `bridge::deposit`. @see {@link deposit}
+     *
+     * When submitting via a wallet adapter, also pass
+     * `options.maxGasAmount: RECOMMENDED_MAX_GAS_AMOUNT` — the wallet builds
+     * the txn so the SDK's default `maxGasAmount` doesn't apply.
+     */
     depositPayload(args: BridgeDepositArgs): InputEntryFunctionData;
-    /** Payload for `bridge::request`. @see {@link request} */
+    /**
+     * Payload for `bridge::request`. @see {@link request}
+     *
+     * When submitting via a wallet adapter, also pass
+     * `options.maxGasAmount: RECOMMENDED_MAX_GAS_AMOUNT` — the wallet builds
+     * the txn so the SDK's default `maxGasAmount` doesn't apply.
+     */
     requestPayload(args: BridgeRequestArgs): InputEntryFunctionData;
     /** Payload for `bridge::withdraw`. @see {@link withdraw} */
     withdrawPayload(args: BridgeWithdrawArgs): InputEntryFunctionData;
@@ -2212,4 +2274,4 @@ declare const GUARANTEED_YIELD_DURATIONS: {
     readonly GOLD: 31536000;
 };
 
-export { AET_SCALE, type AddToPositionArgs, type AdminWithdrawCashbackVaultArgs, type AptreeAddresses, AptreeClient, type AptreeClientConfig, BPS_DENOMINATOR, BridgeBuilder, type BridgeDepositArgs, BridgeModule, type BridgeRequestArgs, BridgeResources, type BridgeState, type BridgeWithdrawArgs, type BridgeWithdrawalTokenState, type DepositGuaranteedArgs, type DepositLockedArgs, type DepositorState, type DepositorStateView, type EmergencyUnlockArgs, type EmergencyUnlockPreview, type FlexibleCompleteWithdrawArgs, type FlexibleDepositArgs, type FlexiblePendingWithdrawal, type FlexiblePoolConfig, type FlexibleProposeAdminArgs, type FlexibleProtocolStats, type FlexibleRequestWithdrawArgs, type FlexibleSetDepositsEnabledArgs, type FlexibleSetMaxTargetApyArgs, type FlexibleSetMinDepositArgs, type FlexibleSetPerformanceFeeArgs, type FlexibleSetTargetApyArgs, type FlexibleSetTreasuryArgs, type FlexibleSetWithdrawalsEnabledArgs, type FlexibleTicket, type FlexibleWithdrawalPreview, FlexibleYieldBuilder, FlexibleYieldModule, FlexibleYieldResources, type FundCashbackVaultArgs, GUARANTEED_YIELD_DURATIONS, GladeBuilder, type GladeFlexibleDepositArgs, type GladeFlexiblePoolCompleteWithdrawArgs, type GladeFlexiblePoolDepositArgs, type GladeFlexibleWithdrawArgs, type GladeGuaranteedDepositArgs, type GladeGuaranteedEmergencyUnlockArgs, type GladeGuaranteedUnlockArgs, GladeModule, type GuaranteedEmergencyUnlockPreview, type GuaranteedLockPosition, type GuaranteedTierConfig, GuaranteedYieldBuilder, GuaranteedYieldModule, GuaranteedYieldResources, GuaranteedYieldTier, LOCKING_DURATIONS, type LockConfig, type LockPosition, LockingBuilder, LockingModule, LockingResources, LockingTier, MockVaultBuilder, type MockVaultDepositArgs, MockVaultModule, type MockVaultRequestWithdrawArgs, MockVaultResources, type MockVaultState, type MockVaultWithdrawRequestedArgs, type MoneyFiAdapterDepositArgs, type MoneyFiAdapterRequestArgs, type MoneyFiAdapterWithdrawArgs, type MoneyFiBridgeState, type MoneyFiReserveState, PRECISION, type PanoraSwapParams, type ProposeAdminArgs, type ProtocolStats, type RequestEmergencyUnlockGuaranteedArgs, type RequestUnlockGuaranteedArgs, SEEDS, type SetDepositsEnabledArgs, type SetLocksEnabledArgs, type SetMaxTotalLockedArgs, type SetMinDepositArgs, type SetTierLimitArgs, type SetTierYieldArgs, type SetTotalDepositsArgs, type SetTreasuryArgs, type SetYieldMultiplierArgs, type SimulateLossArgs, type SimulateYieldArgs, type SwapArgs, TESTNET_ADDRESSES, type TierConfig, type UserFlexiblePendingWithdrawals, type UserFlexibleTickets, type UserGuaranteedPositions, type UserLockPositions, type WithdrawEarlyArgs, type WithdrawEmergencyGuaranteedArgs, type WithdrawGuaranteedArgs, type WithdrawUnlockedArgs };
+export { AET_SCALE, type AddToPositionArgs, type AdminWithdrawCashbackVaultArgs, type AptreeAddresses, AptreeClient, type AptreeClientConfig, BPS_DENOMINATOR, BaseModule, BridgeBuilder, type BridgeDepositArgs, BridgeModule, type BridgeRequestArgs, BridgeResources, type BridgeState, type BridgeWithdrawArgs, type BridgeWithdrawalTokenState, type BuildTransactionOptions, type DepositGuaranteedArgs, type DepositLockedArgs, type DepositorState, type DepositorStateView, type EmergencyUnlockArgs, type EmergencyUnlockPreview, type FlexibleCompleteWithdrawArgs, type FlexibleDepositArgs, type FlexiblePendingWithdrawal, type FlexiblePoolConfig, type FlexibleProposeAdminArgs, type FlexibleProtocolStats, type FlexibleRequestWithdrawArgs, type FlexibleSetDepositsEnabledArgs, type FlexibleSetMaxTargetApyArgs, type FlexibleSetMinDepositArgs, type FlexibleSetPerformanceFeeArgs, type FlexibleSetTargetApyArgs, type FlexibleSetTreasuryArgs, type FlexibleSetWithdrawalsEnabledArgs, type FlexibleTicket, type FlexibleWithdrawalPreview, FlexibleYieldBuilder, FlexibleYieldModule, FlexibleYieldResources, type FundCashbackVaultArgs, GUARANTEED_YIELD_DURATIONS, GladeBuilder, type GladeFlexibleDepositArgs, type GladeFlexiblePoolCompleteWithdrawArgs, type GladeFlexiblePoolDepositArgs, type GladeFlexibleWithdrawArgs, type GladeGuaranteedDepositArgs, type GladeGuaranteedEmergencyUnlockArgs, type GladeGuaranteedUnlockArgs, GladeModule, type GuaranteedEmergencyUnlockPreview, type GuaranteedLockPosition, type GuaranteedTierConfig, GuaranteedYieldBuilder, GuaranteedYieldModule, GuaranteedYieldResources, GuaranteedYieldTier, LOCKING_DURATIONS, type LockConfig, type LockPosition, LockingBuilder, LockingModule, LockingResources, LockingTier, MockVaultBuilder, type MockVaultDepositArgs, MockVaultModule, type MockVaultRequestWithdrawArgs, MockVaultResources, type MockVaultState, type MockVaultWithdrawRequestedArgs, type MoneyFiAdapterDepositArgs, type MoneyFiAdapterRequestArgs, type MoneyFiAdapterWithdrawArgs, type MoneyFiBridgeState, type MoneyFiReserveState, PRECISION, type PanoraSwapParams, type ProposeAdminArgs, type ProtocolStats, RECOMMENDED_MAX_GAS_AMOUNT, type RequestEmergencyUnlockGuaranteedArgs, type RequestUnlockGuaranteedArgs, SEEDS, type SetDepositsEnabledArgs, type SetLocksEnabledArgs, type SetMaxTotalLockedArgs, type SetMinDepositArgs, type SetTierLimitArgs, type SetTierYieldArgs, type SetTotalDepositsArgs, type SetTreasuryArgs, type SetYieldMultiplierArgs, type SimulateLossArgs, type SimulateYieldArgs, type SwapArgs, TESTNET_ADDRESSES, type TierConfig, type UserFlexiblePendingWithdrawals, type UserFlexibleTickets, type UserGuaranteedPositions, type UserLockPositions, type WithdrawEarlyArgs, type WithdrawEmergencyGuaranteedArgs, type WithdrawGuaranteedArgs, type WithdrawUnlockedArgs };

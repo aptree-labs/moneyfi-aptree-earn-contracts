@@ -8,6 +8,13 @@ export {
   type AptreeClientConfig,
 } from "./config";
 
+// ── Base module + gas defaults ────────────────────────────────────────────
+export {
+  BaseModule,
+  RECOMMENDED_MAX_GAS_AMOUNT,
+  type BuildTransactionOptions,
+} from "./modules/base-module";
+
 // ── Modules (for advanced usage / extending) ──────────────────────────────
 export { BridgeModule, BridgeBuilder, BridgeResources } from "./modules/bridge";
 export {

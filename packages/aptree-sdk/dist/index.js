@@ -23,6 +23,7 @@ __export(index_exports, {
   AET_SCALE: () => AET_SCALE,
   AptreeClient: () => AptreeClient,
   BPS_DENOMINATOR: () => BPS_DENOMINATOR,
+  BaseModule: () => BaseModule,
   BridgeBuilder: () => BridgeBuilder,
   BridgeModule: () => BridgeModule,
   BridgeResources: () => BridgeResources,
@@ -45,6 +46,7 @@ __export(index_exports, {
   MockVaultModule: () => MockVaultModule,
   MockVaultResources: () => MockVaultResources,
   PRECISION: () => PRECISION,
+  RECOMMENDED_MAX_GAS_AMOUNT: () => RECOMMENDED_MAX_GAS_AMOUNT,
   SEEDS: () => SEEDS,
   TESTNET_ADDRESSES: () => TESTNET_ADDRESSES
 });
@@ -54,6 +56,7 @@ module.exports = __toCommonJS(index_exports);
 var import_ts_sdk = require("@aptos-labs/ts-sdk");
 
 // src/modules/base-module.ts
+var RECOMMENDED_MAX_GAS_AMOUNT = 2e6;
 var BaseModule = class {
   constructor(aptos, addresses) {
     this.aptos = aptos;
@@ -62,19 +65,29 @@ var BaseModule = class {
   /**
    * Build a simple entry-function transaction.
    *
+   * Applies a generous default `maxGasAmount` ({@link RECOMMENDED_MAX_GAS_AMOUNT})
+   * to keep the bridge's `request` / `deposit` flows from tripping the
+   * simulator's compute limit. Pass `options` to override per call.
+   *
    * @param sender - The account address that will sign the transaction.
    * @param functionId - Fully qualified Move function identifier (e.g. `"0x1::module::function"`).
    * @param functionArguments - Arguments to pass to the Move function.
    * @param typeArguments - Generic type arguments, if any.
+   * @param options - Optional gas / expiry overrides. See {@link BuildTransactionOptions}.
    * @returns A built {@link SimpleTransaction} ready for signing and submission.
    */
-  async buildTransaction(sender, functionId, functionArguments, typeArguments) {
+  async buildTransaction(sender, functionId, functionArguments, typeArguments, options) {
     return this.aptos.transaction.build.simple({
       sender,
       data: {
         function: functionId,
         typeArguments: typeArguments ?? [],
         functionArguments
+      },
+      options: {
+        maxGasAmount: options?.maxGasAmount ?? RECOMMENDED_MAX_GAS_AMOUNT,
+        ...options?.gasUnitPrice !== void 0 ? { gasUnitPrice: options.gasUnitPrice } : {},
+        ...options?.expireTimestamp !== void 0 ? { expireTimestamp: options.expireTimestamp } : {}
       }
     });
   }
@@ -147,11 +160,13 @@ var BridgeBuilder = class extends BaseModule {
    * @param args - {@link BridgeDepositArgs}
    * @returns A built transaction ready for signing.
    */
-  async deposit(sender, args) {
+  async deposit(sender, args, options) {
     return this.buildTransaction(
       sender,
       `${this.addresses.aptree}::bridge::deposit`,
-      [args.amount, args.provider]
+      [args.amount, args.provider],
+      void 0,
+      options
     );
   }
   /**
@@ -161,15 +176,22 @@ var BridgeBuilder = class extends BaseModule {
    * provides slippage protection — the transaction reverts if the share price is
    * below this threshold.
    *
+   * The base module applies a generous default `maxGasAmount` (2M) so the
+   * vault + price-monitor + withdrawal-limits gates don't trip the simulator's
+   * compute budget. Pass `options.maxGasAmount` to override per call.
+   *
    * @param sender - The account address that will sign this transaction.
    * @param args - {@link BridgeRequestArgs}
+   * @param options - Optional gas / expiry overrides.
    * @returns A built transaction ready for signing.
    */
-  async request(sender, args) {
+  async request(sender, args, options) {
     return this.buildTransaction(
       sender,
       `${this.addresses.aptree}::bridge::request`,
-      [args.amount, args.minAmount]
+      [args.amount, args.minAmount],
+      void 0,
+      options
     );
   }
   /**
@@ -180,13 +202,16 @@ var BridgeBuilder = class extends BaseModule {
    *
    * @param sender - The account address that will sign this transaction.
    * @param args - {@link BridgeWithdrawArgs}
+   * @param options - Optional gas / expiry overrides.
    * @returns A built transaction ready for signing.
    */
-  async withdraw(sender, args) {
+  async withdraw(sender, args, options) {
     return this.buildTransaction(
       sender,
       `${this.addresses.aptree}::bridge::withdraw`,
-      [args.amount, args.provider]
+      [args.amount, args.provider],
+      void 0,
+      options
     );
   }
   // ── moneyfi_adapter module entry functions ───────────────────────────────
@@ -200,11 +225,13 @@ var BridgeBuilder = class extends BaseModule {
    * @param args - {@link MoneyFiAdapterDepositArgs}
    * @returns A built transaction ready for signing.
    */
-  async adapterDeposit(sender, args) {
+  async adapterDeposit(sender, args, options) {
     return this.buildTransaction(
       sender,
       `${this.addresses.aptree}::moneyfi_adapter::deposit`,
-      [args.amount]
+      [args.amount],
+      void 0,
+      options
     );
   }
   /**
@@ -214,13 +241,16 @@ var BridgeBuilder = class extends BaseModule {
    *
    * @param sender - The account address that will sign this transaction.
    * @param args - {@link MoneyFiAdapterRequestArgs}
+   * @param options - Optional gas / expiry overrides.
    * @returns A built transaction ready for signing.
    */
-  async adapterRequest(sender, args) {
+  async adapterRequest(sender, args, options) {
     return this.buildTransaction(
       sender,
       `${this.addresses.aptree}::moneyfi_adapter::request`,
-      [args.amount, args.minSharePrice]
+      [args.amount, args.minSharePrice],
+      void 0,
+      options
     );
   }
   /**
@@ -230,24 +260,54 @@ var BridgeBuilder = class extends BaseModule {
    *
    * @param sender - The account address that will sign this transaction.
    * @param args - {@link MoneyFiAdapterWithdrawArgs}
+   * @param options - Optional gas / expiry overrides.
    * @returns A built transaction ready for signing.
    */
-  async adapterWithdraw(sender, args) {
+  async adapterWithdraw(sender, args, options) {
     return this.buildTransaction(
       sender,
       `${this.addresses.aptree}::moneyfi_adapter::withdraw`,
-      [args.amount]
+      [args.amount],
+      void 0,
+      options
     );
   }
   // ── Wallet adapter payload methods ─────────────────────────────────────
-  /** Payload for `bridge::deposit`. @see {@link deposit} */
+  //
+  // When submitting via a wallet adapter, the wallet builds the transaction
+  // itself — our SDK only provides the `InputEntryFunctionData` payload, so
+  // the default `maxGasAmount` baked into `buildTransaction` does NOT apply
+  // here. For the bridge's `deposit` and `request` paths (which walk the
+  // moneyfi vault inside the price-monitor and withdrawal-limits gates), pass
+  // `options.maxGasAmount: RECOMMENDED_MAX_GAS_AMOUNT` to
+  // `signAndSubmitTransaction` to avoid `execution_limit_reached` on
+  // simulation:
+  //
+  //   import { RECOMMENDED_MAX_GAS_AMOUNT } from "@aptree/sdk";
+  //   await signAndSubmitTransaction({
+  //     data: client.bridge.builder.requestPayload(args),
+  //     options: { maxGasAmount: RECOMMENDED_MAX_GAS_AMOUNT },
+  //   });
+  /**
+   * Payload for `bridge::deposit`. @see {@link deposit}
+   *
+   * When submitting via a wallet adapter, also pass
+   * `options.maxGasAmount: RECOMMENDED_MAX_GAS_AMOUNT` — the wallet builds
+   * the txn so the SDK's default `maxGasAmount` doesn't apply.
+   */
   depositPayload(args) {
     return this.buildPayload(
       `${this.addresses.aptree}::bridge::deposit`,
       [args.amount, args.provider]
     );
   }
-  /** Payload for `bridge::request`. @see {@link request} */
+  /**
+   * Payload for `bridge::request`. @see {@link request}
+   *
+   * When submitting via a wallet adapter, also pass
+   * `options.maxGasAmount: RECOMMENDED_MAX_GAS_AMOUNT` — the wallet builds
+   * the txn so the SDK's default `maxGasAmount` doesn't apply.
+   */
   requestPayload(args) {
     return this.buildPayload(
       `${this.addresses.aptree}::bridge::request`,
@@ -2356,6 +2416,7 @@ var GUARANTEED_YIELD_DURATIONS = {
   AET_SCALE,
   AptreeClient,
   BPS_DENOMINATOR,
+  BaseModule,
   BridgeBuilder,
   BridgeModule,
   BridgeResources,
@@ -2378,6 +2439,7 @@ var GUARANTEED_YIELD_DURATIONS = {
   MockVaultModule,
   MockVaultResources,
   PRECISION,
+  RECOMMENDED_MAX_GAS_AMOUNT,
   SEEDS,
   TESTNET_ADDRESSES
 });

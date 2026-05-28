@@ -3,7 +3,7 @@ import {
   InputEntryFunctionData,
   SimpleTransaction,
 } from "@aptos-labs/ts-sdk";
-import { BaseModule } from "../base-module";
+import { BaseModule, BuildTransactionOptions } from "../base-module";
 import type {
   BridgeDepositArgs,
   BridgeRequestArgs,
@@ -45,11 +45,14 @@ export class BridgeBuilder extends BaseModule {
   async deposit(
     sender: AccountAddressInput,
     args: BridgeDepositArgs,
+    options?: BuildTransactionOptions,
   ): Promise<SimpleTransaction> {
     return this.buildTransaction(
       sender,
       `${this.addresses.aptree}::bridge::deposit`,
       [args.amount, args.provider],
+      undefined,
+      options,
     );
   }
 
@@ -60,18 +63,26 @@ export class BridgeBuilder extends BaseModule {
    * provides slippage protection — the transaction reverts if the share price is
    * below this threshold.
    *
+   * The base module applies a generous default `maxGasAmount` (2M) so the
+   * vault + price-monitor + withdrawal-limits gates don't trip the simulator's
+   * compute budget. Pass `options.maxGasAmount` to override per call.
+   *
    * @param sender - The account address that will sign this transaction.
    * @param args - {@link BridgeRequestArgs}
+   * @param options - Optional gas / expiry overrides.
    * @returns A built transaction ready for signing.
    */
   async request(
     sender: AccountAddressInput,
     args: BridgeRequestArgs,
+    options?: BuildTransactionOptions,
   ): Promise<SimpleTransaction> {
     return this.buildTransaction(
       sender,
       `${this.addresses.aptree}::bridge::request`,
       [args.amount, args.minAmount],
+      undefined,
+      options,
     );
   }
 
@@ -83,16 +94,20 @@ export class BridgeBuilder extends BaseModule {
    *
    * @param sender - The account address that will sign this transaction.
    * @param args - {@link BridgeWithdrawArgs}
+   * @param options - Optional gas / expiry overrides.
    * @returns A built transaction ready for signing.
    */
   async withdraw(
     sender: AccountAddressInput,
     args: BridgeWithdrawArgs,
+    options?: BuildTransactionOptions,
   ): Promise<SimpleTransaction> {
     return this.buildTransaction(
       sender,
       `${this.addresses.aptree}::bridge::withdraw`,
       [args.amount, args.provider],
+      undefined,
+      options,
     );
   }
 
@@ -111,11 +126,14 @@ export class BridgeBuilder extends BaseModule {
   async adapterDeposit(
     sender: AccountAddressInput,
     args: MoneyFiAdapterDepositArgs,
+    options?: BuildTransactionOptions,
   ): Promise<SimpleTransaction> {
     return this.buildTransaction(
       sender,
       `${this.addresses.aptree}::moneyfi_adapter::deposit`,
       [args.amount],
+      undefined,
+      options,
     );
   }
 
@@ -126,16 +144,20 @@ export class BridgeBuilder extends BaseModule {
    *
    * @param sender - The account address that will sign this transaction.
    * @param args - {@link MoneyFiAdapterRequestArgs}
+   * @param options - Optional gas / expiry overrides.
    * @returns A built transaction ready for signing.
    */
   async adapterRequest(
     sender: AccountAddressInput,
     args: MoneyFiAdapterRequestArgs,
+    options?: BuildTransactionOptions,
   ): Promise<SimpleTransaction> {
     return this.buildTransaction(
       sender,
       `${this.addresses.aptree}::moneyfi_adapter::request`,
       [args.amount, args.minSharePrice],
+      undefined,
+      options,
     );
   }
 
@@ -146,22 +168,47 @@ export class BridgeBuilder extends BaseModule {
    *
    * @param sender - The account address that will sign this transaction.
    * @param args - {@link MoneyFiAdapterWithdrawArgs}
+   * @param options - Optional gas / expiry overrides.
    * @returns A built transaction ready for signing.
    */
   async adapterWithdraw(
     sender: AccountAddressInput,
     args: MoneyFiAdapterWithdrawArgs,
+    options?: BuildTransactionOptions,
   ): Promise<SimpleTransaction> {
     return this.buildTransaction(
       sender,
       `${this.addresses.aptree}::moneyfi_adapter::withdraw`,
       [args.amount],
+      undefined,
+      options,
     );
   }
 
   // ── Wallet adapter payload methods ─────────────────────────────────────
+  //
+  // When submitting via a wallet adapter, the wallet builds the transaction
+  // itself — our SDK only provides the `InputEntryFunctionData` payload, so
+  // the default `maxGasAmount` baked into `buildTransaction` does NOT apply
+  // here. For the bridge's `deposit` and `request` paths (which walk the
+  // moneyfi vault inside the price-monitor and withdrawal-limits gates), pass
+  // `options.maxGasAmount: RECOMMENDED_MAX_GAS_AMOUNT` to
+  // `signAndSubmitTransaction` to avoid `execution_limit_reached` on
+  // simulation:
+  //
+  //   import { RECOMMENDED_MAX_GAS_AMOUNT } from "@aptree/sdk";
+  //   await signAndSubmitTransaction({
+  //     data: client.bridge.builder.requestPayload(args),
+  //     options: { maxGasAmount: RECOMMENDED_MAX_GAS_AMOUNT },
+  //   });
 
-  /** Payload for `bridge::deposit`. @see {@link deposit} */
+  /**
+   * Payload for `bridge::deposit`. @see {@link deposit}
+   *
+   * When submitting via a wallet adapter, also pass
+   * `options.maxGasAmount: RECOMMENDED_MAX_GAS_AMOUNT` — the wallet builds
+   * the txn so the SDK's default `maxGasAmount` doesn't apply.
+   */
   depositPayload(args: BridgeDepositArgs): InputEntryFunctionData {
     return this.buildPayload(
       `${this.addresses.aptree}::bridge::deposit`,
@@ -169,7 +216,13 @@ export class BridgeBuilder extends BaseModule {
     );
   }
 
-  /** Payload for `bridge::request`. @see {@link request} */
+  /**
+   * Payload for `bridge::request`. @see {@link request}
+   *
+   * When submitting via a wallet adapter, also pass
+   * `options.maxGasAmount: RECOMMENDED_MAX_GAS_AMOUNT` — the wallet builds
+   * the txn so the SDK's default `maxGasAmount` doesn't apply.
+   */
   requestPayload(args: BridgeRequestArgs): InputEntryFunctionData {
     return this.buildPayload(
       `${this.addresses.aptree}::bridge::request`,
