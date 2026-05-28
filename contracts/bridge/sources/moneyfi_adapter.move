@@ -738,21 +738,30 @@ module aptree::moneyfi_adapter {
     // ─── Price monitor ──────────────────────────────────────────────────────
     //
     // The price monitor is a circuit breaker around `vault::estimate_total_fund_value`.
-    // Normal user activity does NOT change `estimate_total_fund_value` at the
-    // sample points we care about: `deposit` and `request` both run BEFORE the
-    // vault transfer happens (deposit pushes funds in *after* sampling share
-    // price; request only earmarks via `vault::request_withdraw`, which does
-    // not touch the total fund value). That filters out the "people just
-    // withdrawing" baseline drift the user asked us to ignore, and leaves
-    // genuine value loss (vault impairment, oracle drift, exploit) as the
-    // signal.
-    //
-    // The detection logic samples the raw `total_fund_value` and tracks the
-    // highest value seen within `window_seconds`. A drop of more than
-    // `drop_threshold_bps` from that peak trips `paused`. While paused,
+    // It tracks the highest value seen within `window_seconds`; a drop greater
+    // than `drop_threshold_bps` from that peak trips `paused`. While paused,
     // `deposit` and `request` abort with `EBRIDGE_PAUSED`; `withdraw` keeps
     // working so users with already-pending withdrawals can settle (otherwise
     // funds get stuck behind the breaker).
+    //
+    // ## Sampling model: off-chain ticker REQUIRED for auto-detection.
+    //
+    // Originally the monitor sampled inline on every `deposit` / `request`.
+    // That added a `vault::estimate_total_fund_value` call to the user hot
+    // path — and `get_share_price` already calls it. With moneyfi's vault
+    // currently sized the way it is, two reads per txn trip the Aptos per-txn
+    // execution-gas ceiling (`EXECUTION_LIMIT_REACHED`). So:
+    //
+    //   * The user gate (`check_and_assert_bridge_active`) is now a pure
+    //     `paused` read — no vault call, no state writes.
+    //   * Sampling and anomaly detection live SOLELY in `tick_price_monitor`,
+    //     which an off-chain process MUST call on a cadence shorter than
+    //     `window_seconds` for auto-pause to fire at all. If the ticker
+    //     stops, you lose auto-detection until an admin calls
+    //     `set_monitor_paused` manually.
+    //
+    // Manual `set_monitor_paused` is unaffected — it remains a synchronous
+    // kill switch independent of any sampling cadence.
     //
     // The whole resource is initialized lazily by an admin call to
     // `init_price_monitor` so the upgrade is safe against deployed dependents
@@ -801,11 +810,13 @@ module aptree::moneyfi_adapter {
         );
     }
 
-    /// Permissionless poll. Off-chain watchers should call this on a cadence
-    /// shorter than the configured window so the monitor trips before any
-    /// user deposit/request hits a bad price. Anyone can call — the only
-    /// state change is sampling and (possibly) flipping `paused` on, which
-    /// only ever tightens the protocol.
+    /// Permissionless poll. **This is the sole sampling path** — without an
+    /// off-chain process calling this on a cadence shorter than
+    /// `window_seconds`, the monitor will never auto-trip and `paused` only
+    /// flips via `set_monitor_paused`. Run it from a cron / scheduled job /
+    /// keeper bot every ~30–60s for the default 1-hour window. Anyone can
+    /// call — the only state change is sampling and (possibly) flipping
+    /// `paused` on, which only ever tightens the protocol.
     public entry fun tick_price_monitor() acquires PriceMonitor {
         let controller_address = account::create_resource_address(&@aptree, SEED);
         assert!(exists<PriceMonitor>(controller_address), EMONITOR_NOT_INITIALIZED);
@@ -1058,24 +1069,25 @@ module aptree::moneyfi_adapter {
         vault::estimate_total_fund_value(reserve_address, token_metadata)
     }
 
-    /// Gate used by `deposit_fungible` and `request_withdrawal`. Three steps:
+    /// Gate used by `deposit_fungible` and `request_withdrawal`. Pure
+    /// `paused` read — no vault call, no sampling, no state mutation. Two
+    /// steps:
     ///   1. If the monitor doesn't exist, do nothing (pre-init compat).
-    ///   2. Abort *based on prior-txn pause state*. We have to check before
-    ///      sampling — if sampling itself flips the pause, asserting here
-    ///      would abort the txn and roll back the new pause flag, leaving
-    ///      the protocol unprotected for the next caller.
-    ///   3. Sample. If this sample is the one that detects an anomaly, the
-    ///      pause persists for the *next* call. The current txn proceeds —
-    ///      an accepted one-call detection window. An off-chain watcher
-    ///      calling `tick_price_monitor` shrinks that window to zero.
+    ///   2. Abort if `paused` is set.
+    ///
+    /// Sampling is intentionally NOT done here. Calling
+    /// `vault::estimate_total_fund_value` inside the user hot path consumes
+    /// enough Aptos execution gas that, combined with the read inside
+    /// `get_share_price`, the txn trips `EXECUTION_LIMIT_REACHED`. Off-chain
+    /// callers of `tick_price_monitor` are responsible for sampling on a
+    /// cadence — that's now the sole detection path. Manual
+    /// `set_monitor_paused` still works as a kill switch independent of
+    /// sampling.
     fun check_and_assert_bridge_active() acquires PriceMonitor {
         let controller_address = account::create_resource_address(&@aptree, SEED);
         if (!exists<PriceMonitor>(controller_address)) return;
-        let monitor = borrow_global_mut<PriceMonitor>(controller_address);
-
+        let monitor = borrow_global<PriceMonitor>(controller_address);
         assert!(!monitor.paused, EBRIDGE_PAUSED);
-
-        sample_monitor(monitor);
     }
 
     /// Core detection loop. Samples the raw total fund value and updates
